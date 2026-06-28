@@ -157,7 +157,7 @@ export default function App() {
       const storedR = localStorage.getItem(REFLECTIONS_KEY);
       if (storedR) setReflections(JSON.parse(storedR));
     } catch {}
-  }, []);
+  }, [today]);
 
   const calculateStreak = () => {
     let streak = 0;
