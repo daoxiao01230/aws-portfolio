@@ -78,7 +78,7 @@ const translations = {
   },
 };
 
-const LANG_CYCLE = ["zh", "ja", "en"];
+const LANG_CYCLE = ["ja", "en", "zh"];
 
 function GratitudeTree({ streak }) {
   const level = Math.min(streak, 30);
