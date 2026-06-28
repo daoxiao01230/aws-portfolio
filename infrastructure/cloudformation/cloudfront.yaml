@@ -1,0 +1,157 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Portfolio 01 - CloudFront + BucketPolicy'
+
+# ============================================================
+# パラメータ
+# s3.yaml スタックの Outputs 値を入力する
+# ============================================================
+Parameters:
+  BucketName:
+    Type: String
+    Description: >
+      S3バケット名
+      （s3.yaml の Outputs > BucketName の値）
+
+  BucketArn:
+    Type: String
+    Description: >
+      S3バケットARN
+      （s3.yaml の Outputs > BucketArn の値）
+      例: arn:aws:s3:::portfolio-01-gratitude-journal-2026
+
+  BucketRegionalDomainName:
+    Type: String
+    Description: >
+      S3リージョナルドメイン名
+      （s3.yaml の Outputs > BucketRegionalDomainName の値）
+      例: portfolio-01-gratitude-journal-2026.s3.ap-northeast-1.amazonaws.com
+
+# ============================================================
+# リソース
+# ============================================================
+Resources:
+
+  # ----------------------------------------------------------
+  # CloudFront Origin Access Control（OAC）
+  # CloudFrontがプライベートS3にアクセスするための認証メカニズム
+  # OAI（Origin Access Identity）の後継。新規構築はOACを使う。
+  # ----------------------------------------------------------
+  CloudFrontOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${BucketName}-oac'
+        Description: !Sub 'OAC for ${BucketName}'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # ----------------------------------------------------------
+  # CloudFront ディストリビューション
+  # グローバルCDN。S3コンテンツをHTTPS経由で世界中に配信する。
+  # ----------------------------------------------------------
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        HttpVersion: http2
+        IPV6Enabled: true
+        DefaultRootObject: index.html
+
+        # -------------------------------------------------------
+        # 【設定しない項目】
+        # -------------------------------------------------------
+        #
+        # Aliases: カスタムドメイン
+        #   理由: Phase 1はCloudFrontデフォルトドメインを使用。
+        #         Phase 2でACM証明書と合わせて設定する。
+        #
+        # PriceClass: デフォルト = PriceClass_All（全世界）
+        #
+        # Logging: Phase 4（Observability）で追加予定。
+
+        Origins:
+          - Id: !Sub 'S3-${BucketName}'
+            DomainName: !Ref BucketRegionalDomainName
+            OriginAccessControlId: !GetAtt CloudFrontOAC.Id
+            # OAC使用時はS3OriginConfigを空で指定する必要がある（CFnの仕様）
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+
+        DefaultCacheBehavior:
+          TargetOriginId: !Sub 'S3-${BucketName}'
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+          # TTL（秒）
+          # 注意: デプロイ後はGitHub ActionsでCloudFront Invalidation（/*）を実行する
+          MinTTL: 0
+          DefaultTTL: 3600
+          MaxTTL: 86400
+
+        # React Router（クライアントサイドルーティング）対応
+        # 問題: S3はOACで保護されているため、存在しないパスに
+        #       アクセスすると403または404を返す。
+        # 解決: CloudFrontでエラーをキャッチし、index.htmlを返す。
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+
+        ViewerCertificate:
+          # Phase 1: CloudFrontデフォルト証明書を使用（*.cloudfront.net）
+          # Phase 2: ACM証明書に切り替え（カスタムドメイン追加時）
+          CloudFrontDefaultCertificate: true
+
+      Tags:
+        - Key: Project
+          Value: aws-portfolio-01-static-site
+
+  # ----------------------------------------------------------
+  # S3バケットポリシー
+  # CloudFrontからのみS3へのアクセスを許可する
+  # ※ CloudFront Distribution の ARN を参照するため cloudfront.yaml に配置
+  # ----------------------------------------------------------
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BucketName
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${BucketArn}/*'
+            Condition:
+              StringEquals:
+                # このCloudFrontディストリビューションからのリクエストのみ許可
+                AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
+
+# ============================================================
+# 出力値
+# iam.yaml スタック作成時のパラメータとして使用する
+# ============================================================
+Outputs:
+  WebsiteURL:
+    Description: CloudFront URL（デプロイ後にブラウザで確認）
+    Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
+
+  CloudFrontDistributionId:
+    Description: CloudFront Distribution ID → iam.yaml の CloudFrontDistributionId パラメータに使用
+    Value: !Ref CloudFrontDistribution
+
+  BucketName:
+    Description: S3バケット名 → iam.yaml の BucketName パラメータに使用
+    Value: !Ref BucketName

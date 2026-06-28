@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Portfolio 01 - S3バケット'
+
+# ============================================================
+# パラメータ
+# ============================================================
+Parameters:
+  BucketName:
+    Type: String
+    Description: >
+      S3バケット名（AWSグローバルで一意である必要がある）
+      例: portfolio-01-gratitude-journal-2026
+
+# ============================================================
+# リソース
+# ============================================================
+Resources:
+
+  # ----------------------------------------------------------
+  # S3バケット
+  # 静的ファイル（HTML/CSS/JS/画像）を保存するストレージ
+  # ----------------------------------------------------------
+  WebsiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+
+      # パブリックアクセスブロック設定
+      # 4項目すべてtrueにする理由:
+      # CloudFront OAC経由でのみアクセスを許可するため、
+      # S3への直接パブリックアクセスは完全に不要。
+      # AWSセキュリティのベストプラクティスに準拠。
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+      # -------------------------------------------------------
+      # 【設定しない項目】
+      # -------------------------------------------------------
+      #
+      # WebsiteConfiguration: 使わない
+      #   理由: CloudFrontをフロントに置くため不要。
+      #
+      # VersioningConfiguration: バージョニング無効
+      #   理由: ソースコードはGitで管理するため不要。
+      #
+      # LoggingConfiguration: アクセスログなし
+      #   理由: Phase 4で追加予定。
+      #
+      # BucketEncryption: 暗号化を明示しない
+      #   理由: 2023年以降、SSE-S3がデフォルトで自動有効化済み。
+
+      Tags:
+        - Key: Project
+          Value: aws-portfolio-01-static-site
+
+# ============================================================
+# 出力値
+# cloudfront.yaml スタック作成時のパラメータとして使用する
+# ============================================================
+Outputs:
+  BucketName:
+    Description: S3バケット名 → cloudfront.yaml の BucketName パラメータに使用
+    Value: !Ref WebsiteBucket
+
+  BucketArn:
+    Description: S3バケットARN → cloudfront.yaml の BucketArn パラメータに使用
+    Value: !GetAtt WebsiteBucket.Arn
+
+  BucketRegionalDomainName:
+    Description: S3リージョナルドメイン → cloudfront.yaml の BucketRegionalDomainName パラメータに使用
+    Value: !GetAtt WebsiteBucket.RegionalDomainName
