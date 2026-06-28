@@ -225,6 +225,11 @@ export default function App() {
       display: "flex", flexDirection: "column", alignItems: "center",
       padding: "0 0 40px",
     }}>
+      <div style={{
+        width: "100%",
+        maxWidth: 430,
+        display: "flex", flexDirection: "column",
+      }}>
 
       {/* Header */}
       <div style={{ ...CARD, padding: "28px 16px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -467,6 +472,7 @@ export default function App() {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }
