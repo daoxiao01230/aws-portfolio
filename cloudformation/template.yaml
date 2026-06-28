@@ -1,75 +1,284 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Portfolio 01 - Static React site on S3 + CloudFront'
+Description: 'Portfolio 01 - 静的サイトホスティング（S3 + CloudFront）'
 
+# ============================================================
+# パラメータ
+# スタック作成・更新時に指定する入力値
+# ============================================================
 Parameters:
   BucketName:
     Type: String
-    Description: S3 bucket name for static website hosting
+    Description: >
+      S3バケット名（AWSグローバルで一意である必要がある）
+      例: portfolio-01-gratitude-journal-20240101
 
+# ============================================================
+# リソース
+# ============================================================
 Resources:
 
+  # ----------------------------------------------------------
+  # S3バケット
+  # 静的ファイル（HTML/CSS/JS/画像）を保存するストレージ
+  # ----------------------------------------------------------
   WebsiteBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Ref BucketName
+
+      # パブリックアクセスブロック設定
+      # 4項目すべてtrueにする理由:
+      # CloudFront OAC経由でのみアクセスを許可するため、
+      # S3への直接パブリックアクセスは完全に不要。
+      # AWSセキュリティのベストプラクティスに準拠。
       PublicAccessBlockConfiguration:
+        # パブリックACLの新規付与をブロック
         BlockPublicAcls: true
+        # パブリックACLを許可するバケットポリシーをブロック
         BlockPublicPolicy: true
+        # 既存のパブリックACLを無視（実質的に無効化）
         IgnorePublicAcls: true
+        # パブリックバケットポリシーによる外部アクセスを制限
         RestrictPublicBuckets: true
+
+      # -------------------------------------------------------
+      # 【設定しない項目】
+      # -------------------------------------------------------
+      #
+      # WebsiteConfiguration（S3静的ウェブサイトホスティング）: 使わない
+      #   理由: CloudFrontをフロントに置くため不要。
+      #         S3直接公開はHTTPS非対応・カスタムドメインが複雑になる。
+      #
+      # VersioningConfiguration: バージョニング無効
+      #   理由: ソースコードはGitで管理するため不要。
+      #         有効にするとストレージコストが増加する。
+      #
+      # LifecycleConfiguration: ライフサイクルルール設定なし
+      #   理由: 静的ファイルは常時必要。自動削除・移行は不要。
+      #
+      # ReplicationConfiguration: レプリケーション設定なし
+      #   理由: CloudFrontがグローバルCDNとして機能するため不要。
+      #
+      # LoggingConfiguration: アクセスログ設定なし
+      #   理由: CloudFrontのログで代替可能。Phase 4で追加予定。
+      #
+      # CorsConfiguration: CORS設定なし
+      #   理由: APIは存在しない（Phase 3で追加）。
+      #
+      # BucketEncryption: 暗号化を明示しない
+      #   理由: 2023年以降、SSE-S3がデフォルトで自動有効化済み。
+
       Tags:
         - Key: Project
           Value: aws-portfolio-01-static-site
 
+  # ----------------------------------------------------------
+  # CloudFront Origin Access Control（OAC）
+  # CloudFrontがプライベートS3にアクセスするための認証メカニズム
+  # OAI（Origin Access Identity）の後継。新規構築はOACを使う。
+  # ----------------------------------------------------------
   CloudFrontOAC:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
       OriginAccessControlConfig:
         Name: !Sub '${BucketName}-oac'
         Description: !Sub 'OAC for ${BucketName}'
+
+        # オリジンの種類
+        # s3            = S3バケット（今回の設定）
+        # mediastore    = AWS Elemental MediaStore
+        # mediapackagev2= AWS Elemental MediaPackage v2
+        # lambda        = Lambda Function URL
         OriginAccessControlOriginType: s3
+
+        # リクエストへの署名方法
+        # always      = 常に署名する（推奨・今回の設定）
+        # never       = 署名しない（パブリックオリジン向け）
+        # no-override = オリジンが署名を要求する場合のみ署名
         SigningBehavior: always
+
+        # 署名プロトコル
+        # sigv4 = AWS Signature Version 4（現在の標準・唯一の選択肢）
         SigningProtocol: sigv4
 
+  # ----------------------------------------------------------
+  # CloudFront ディストリビューション
+  # グローバルCDN。S3コンテンツをHTTPS経由で世界中に配信する。
+  # ----------------------------------------------------------
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
+
+        # ディストリビューションを有効化
         Enabled: true
+
+        # HTTPバージョン
+        # http2       = HTTP/2のみ（今回の設定）
+        # http2and3   = HTTP/2 + HTTP/3（QUIC対応・より高パフォーマンス）
+        # 理由: http2で現代的なブラウザをすべてカバーできる。
         HttpVersion: http2
+
+        # IPv6対応を有効化
+        # 理由: 追加コストなし。モバイル環境ではIPv6が主流。
         IPV6Enabled: true
+
+        # デフォルトルートオブジェクト
+        # "/" へのアクセス時に返すファイル
         DefaultRootObject: index.html
+
+        # -------------------------------------------------------
+        # 【設定しない項目】
+        # -------------------------------------------------------
+        #
+        # Aliases: カスタムドメイン（例: gratitude.daoxiao.org）
+        #   理由: Phase 1はCloudFrontデフォルトドメインを使用。
+        #         Phase 2でACM証明書と合わせて設定する。
+        #
+        # PriceClass: 配信リージョンの範囲
+        #   デフォルト = PriceClass_All（全世界・今回の設定）
+        #   PriceClass_100 = 北米・欧州のみ（低コスト）
+        #   PriceClass_200 = 北米・欧州・アジア（中コスト）
+        #   理由: ポートフォリオは全世界に公開したい。
+        #
+        # WebACLId: AWS WAF
+        #   理由: 静的サイトには過剰。Phase 3以降で検討。
+        #
+        # Logging: アクセスログ
+        #   理由: Phase 4（Observability）で追加予定。
+
+        # --------------------------------------------------------
+        # オリジン設定
+        # --------------------------------------------------------
         Origins:
           - Id: !Sub 'S3-${BucketName}'
+
+            # S3のリージョナルドメインを使用
+            # 理由: グローバルドメイン（s3.amazonaws.com）は
+            #       リダイレクト問題が発生することがあるため、
+            #       リージョナルドメインが推奨される。
             DomainName: !GetAtt WebsiteBucket.RegionalDomainName
+
+            # OACを紐付ける（S3へのアクセス認証）
             OriginAccessControlId: !GetAtt CloudFrontOAC.Id
+
+            # OAC使用時はS3OriginConfigを空で指定する必要がある（CFnの仕様）
             S3OriginConfig:
               OriginAccessIdentity: ''
+
+            # -------------------------------------------------------
+            # 【設定しない項目】
+            # -------------------------------------------------------
+            #
+            # OriginShield: 追加キャッシュレイヤー
+            #   理由: 静的サイトでは過剰。オリジンへのリクエスト削減が
+            #         必要な大規模サイトで有効。追加コストが発生する。
+
+        # --------------------------------------------------------
+        # デフォルトキャッシュ動作
+        # --------------------------------------------------------
         DefaultCacheBehavior:
           TargetOriginId: !Sub 'S3-${BucketName}'
+
+          # ビューワープロトコルポリシー
+          # redirect-to-https = HTTPアクセスをHTTPSに自動リダイレクト（今回の設定・推奨）
+          # https-only        = HTTPアクセスを403エラーで拒否
+          # allow-all         = HTTP/HTTPS両方許可（非推奨・セキュリティリスク）
           ViewerProtocolPolicy: redirect-to-https
+
+          # 許可するHTTPメソッド
+          # [GET, HEAD]                    = 読み取りのみ（今回の設定）
+          # [GET, HEAD, OPTIONS]           = OPTIONSも許可（CORS対応時）
+          # [GET, HEAD, OPTIONS, PUT, ...] = 全メソッド（動的コンテンツ向け）
+          # 理由: 静的サイトはGET/HEADのみ必要。
           AllowedMethods: [GET, HEAD]
+
+          # キャッシュするHTTPメソッド
           CachedMethods: [GET, HEAD]
+
+          # compress: gzip/Brotli圧縮を有効化
+          # 理由: JS/CSS/HTMLを圧縮してロード時間を短縮。追加コストなし。
+          Compress: true
+
           ForwardedValues:
+            # クエリ文字列をオリジンに転送しない
+            # 理由: 静的ファイルはURLパラメータを処理しない。
+            #       転送するとキャッシュキーが増加しヒット率が下がる。
             QueryString: false
+
             Cookies:
+              # Cookieの転送設定
+              # none      = 転送しない（今回の設定）
+              # all       = すべて転送（動的コンテンツ・ログイン機能向け）
+              # whitelist = 指定したCookieのみ転送
+              # 理由: 静的ファイルはCookieを必要としない。
+              #       転送するとキャッシュヒット率が下がる。
               Forward: none
+
+          # TTL（Time To Live）: CloudFrontキャッシュの有効期間（秒）
+          # MinTTL     =     0: Cache-Controlヘッダーで0秒指定を許可
+          # DefaultTTL =  3600: Cache-Controlヘッダーがない場合のデフォルト（1時間）
+          # MaxTTL     = 86400: キャッシュの最大保持時間（1日）
+          #
+          # 注意: デプロイ後はGitHub ActionsでCloudFront Invalidation（/*）を
+          #       実行しないと古いキャッシュが配信され続ける
           MinTTL: 0
           DefaultTTL: 3600
           MaxTTL: 86400
+
+        # --------------------------------------------------------
+        # カスタムエラーレスポンス
+        # React Router（クライアントサイドルーティング）対応
+        # --------------------------------------------------------
+        # 問題: S3はOACで保護されているため、存在しないパス（例: /about）に
+        #       アクセスすると403または404を返す。
+        # 解決: CloudFrontでエラーをキャッチし、index.htmlを返す。
+        #       Reactがクライアント側でルーティングを処理する。
         CustomErrorResponses:
+          # S3がファイルへのアクセスを拒否した場合（OAC保護により403）
           - ErrorCode: 403
             ResponseCode: 200
             ResponsePagePath: /index.html
+
+          # S3にファイルが存在しない場合（404）
           - ErrorCode: 404
             ResponseCode: 200
             ResponsePagePath: /index.html
+
+        # --------------------------------------------------------
+        # 地理的制限
+        # --------------------------------------------------------
+        # Noneを指定して全世界からアクセス可能にする
+        # 理由: ポートフォリオは全世界の採用担当者に見せたい。
+        # 制限が必要な場合:
+        #   GeoRestriction:
+        #     RestrictionType: whitelist
+        #     Locations: [JP, US, CA]  ← 許可する国コード
+
+        # --------------------------------------------------------
+        # SSL/TLS証明書
+        # --------------------------------------------------------
         ViewerCertificate:
+          # CloudFrontのデフォルト証明書を使用（*.cloudfront.net ドメイン）
           CloudFrontDefaultCertificate: true
+          # 理由: Phase 1はカスタムドメインなし。
+          #       Phase 2でカスタムドメインを追加する際は以下に切り替える:
+          #
+          # CloudFrontDefaultCertificate: false
+          # AcmCertificateArn: arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/xxxx
+          # SslSupportMethod: sni-only        # 全クライアント対応・追加コストなし
+          # MinimumProtocolVersion: TLSv1.2_2021  # 現在の推奨最低バージョン
+          #
+          # 注意: ACM証明書はus-east-1リージョンで作成する必要がある（CloudFrontの要件）
+
       Tags:
         - Key: Project
           Value: aws-portfolio-01-static-site
 
+  # ----------------------------------------------------------
+  # S3バケットポリシー
+  # CloudFrontからのみS3へのアクセスを許可する
+  # ----------------------------------------------------------
   BucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
@@ -80,22 +289,34 @@ Resources:
           - Sid: AllowCloudFrontServicePrincipal
             Effect: Allow
             Principal:
+              # cloudfront.amazonaws.com = CloudFrontサービスプリンシパル
+              # 特定のIAMユーザー/ロールではなく、CloudFrontサービス自体に許可
               Service: cloudfront.amazonaws.com
+            # s3:GetObject のみ許可（読み取り専用）
+            # s3:PutObject / s3:DeleteObject / s3:ListBucket は許可しない
+            # 理由: CloudFrontはファイルを読むだけでよい。
+            #       書き込み権限はGitHub Actions（IAMユーザー）が持つ。
             Action: s3:GetObject
             Resource: !Sub '${WebsiteBucket.Arn}/*'
             Condition:
               StringEquals:
+                # このCloudFrontディストリビューションからのリクエストのみ許可
+                # 理由: 他のAWSアカウントのCloudFrontからのアクセスを防ぐ
                 AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
 
+# ============================================================
+# 出力値
+# スタック作成後に参照できる値
+# ============================================================
 Outputs:
   WebsiteURL:
-    Description: CloudFront URL
+    Description: CloudFront URL（デプロイ後にブラウザで確認）
     Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
 
   CloudFrontDistributionId:
-    Description: CloudFront Distribution ID
+    Description: CloudFront Distribution ID（GitHub ActionsのSecretsに設定する）
     Value: !Ref CloudFrontDistribution
 
   BucketName:
-    Description: S3 Bucket Name
+    Description: S3バケット名（GitHub ActionsのSecretsに設定する）
     Value: !Ref WebsiteBucket
