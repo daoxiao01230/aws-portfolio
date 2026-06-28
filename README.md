@@ -78,12 +78,38 @@ npm install
 npm start
 ```
 
+## Destroy All Resources
+
+When you no longer need the infrastructure, delete everything with one command.
+
+### Option A: Terraform
+
+```bash
+bash scripts/destroy-terraform.sh
+```
+
+`force_destroy = true` is set on the S3 bucket, so files are automatically deleted before the bucket is removed.
+
+### Option B: CloudFormation
+
+```bash
+bash scripts/destroy-cloudformation.sh <bucket-name> <stack-name>
+
+# Example:
+bash scripts/destroy-cloudformation.sh \
+  portfolio-01-gratitude-journal-20240101 \
+  portfolio-01-static-site
+```
+
+The script empties the S3 bucket first, then deletes the stack.
+
 ## Key Decisions
 
 - S3 bucket is **private** — CloudFront accesses it via Origin Access Control (OAC), not public ACL
 - 403/404 errors redirect to `index.html` to support client-side routing
 - CI/CD uses 2 separate jobs: `build` (runs on all events) and `deploy` (main only)
 - Both Terraform and CloudFormation produce identical infrastructure
+- `force_destroy = true` on S3 (Terraform only) — allows one-command teardown
 
 ---
 
@@ -167,9 +193,35 @@ npm install
 npm start
 ```
 
+## 全リソースの削除
+
+不要になったインフラを一コマンドで全削除できる。
+
+### 選択肢A: Terraform
+
+```bash
+bash scripts/destroy-terraform.sh
+```
+
+S3バケットに`force_destroy = true`が設定されているため、中身のファイルを自動削除してからバケットを削除する。
+
+### 選択肢B: CloudFormation
+
+```bash
+bash scripts/destroy-cloudformation.sh <バケット名> <スタック名>
+
+# 例:
+bash scripts/destroy-cloudformation.sh \
+  portfolio-01-gratitude-journal-20240101 \
+  portfolio-01-static-site
+```
+
+スクリプトがS3バケットを先に空にしてからスタックを削除する。
+
 ## 設計上の判断
 
 - S3バケットは**プライベート** — CloudFrontはOAC（Origin Access Control）経由でのみアクセス。直接公開しない。
 - 403/404エラーは`index.html`にリダイレクト — ReactRouterのクライアントサイドルーティングを機能させるため。
 - CI/CDは2ジョブ構成: `build`（全イベントで実行）と`deploy`（mainのみ）に分離。
 - TerraformとCloudFormationは同一のインフラを構築する。用途に応じてどちらかを選択。
+- S3に`force_destroy = true`（Terraformのみ）— 一コマンドで全削除できるようにするため。

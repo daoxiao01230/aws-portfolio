@@ -13,6 +13,11 @@ resource "aws_s3_bucket" "website" {
   # バケット名はAWSグローバルで一意である必要がある
   # 例: "portfolio-01-gratitude-journal-20240101"
 
+  # terraform destroy 時にバケット内のファイルを自動削除してからバケットを削除する
+  # false（デフォルト）にすると中身があるバケットの削除はエラーになる
+  # 理由: ポートフォリオ学習用のため、一コマンドで全リソースを削除できるようにする
+  force_destroy = true
+
   tags = {
     Project = "aws-portfolio-01-static-site"
   }
