@@ -29,11 +29,21 @@ npm build   npm build
 |---------|---------|
 | S3 | Store static build files (private bucket) |
 | CloudFront | CDN + HTTPS + OAC |
+| IAM | Dedicated user for GitHub Actions (least privilege) |
 | GitHub Actions | CI/CD — build check on PR, auto deploy on main |
 | CloudFormation | Infrastructure as Code (option A) |
 | Terraform | Infrastructure as Code (option B) |
 
-## Deploy Infrastructure
+## Full Setup Flow
+
+```
+1. Deploy infrastructure (Terraform or CloudFormation)
+2. Create IAM user for GitHub Actions
+3. Register GitHub Secrets (5 values)
+4. Push to main → automatic deploy
+```
+
+## Step 1: Deploy Infrastructure
 
 ### Option A: Terraform
 
@@ -54,7 +64,56 @@ aws cloudformation deploy \
   --parameter-overrides BucketName=your-bucket-name
 ```
 
-## Setup GitHub Actions CI/CD
+## Step 2: Create IAM User
+
+Create a dedicated IAM user for GitHub Actions with least-privilege permissions.
+
+### Option A: Script (requires IAM admin permissions)
+
+```bash
+bash scripts/setup-iam.sh
+```
+
+The script creates the user, attaches the policy, and prints the access key values to register in GitHub Secrets.
+
+### Option B: AWS Console (manual)
+
+1. IAM → Users → Create user
+2. User name: `github-actions-portfolio`
+3. Attach permissions → Create inline policy → paste JSON below:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "S3Deploy",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::YOUR_BUCKET_NAME",
+        "arn:aws:s3:::YOUR_BUCKET_NAME/*"
+      ]
+    },
+    {
+      "Sid": "CloudFrontInvalidation",
+      "Effect": "Allow",
+      "Action": "cloudfront:CreateInvalidation",
+      "Resource": "arn:aws:cloudfront::YOUR_ACCOUNT_ID:distribution/YOUR_DISTRIBUTION_ID"
+    }
+  ]
+}
+```
+
+4. After user is created → Security credentials tab → Create access key
+5. Copy `Access key ID` and `Secret access key`
+
+## Step 3: Setup GitHub Actions CI/CD
 
 Add these secrets in GitHub → Settings → Secrets and variables → Actions:
 
@@ -97,7 +156,7 @@ bash scripts/destroy-cloudformation.sh <bucket-name> <stack-name>
 
 # Example:
 bash scripts/destroy-cloudformation.sh \
-  portfolio-01-gratitude-journal-20240101 \
+  portfolio-01-gratitude-journal-2026 \
   portfolio-01-static-site
 ```
 
@@ -108,6 +167,7 @@ The script empties the S3 bucket first, then deletes the stack.
 - S3 bucket is **private** — CloudFront accesses it via Origin Access Control (OAC), not public ACL
 - 403/404 errors redirect to `index.html` to support client-side routing
 - CI/CD uses 2 separate jobs: `build` (runs on all events) and `deploy` (main only)
+- IAM user has least-privilege permissions — S3 write + CloudFront invalidation only, scoped to this project's resources
 - Both Terraform and CloudFormation produce identical infrastructure
 - `force_destroy = true` on S3 (Terraform only) — allows one-command teardown
 
@@ -144,11 +204,21 @@ npm build   npm build
 |---------|------|
 | S3 | 静的ファイル（HTML/CSS/JS）の保存（プライベートバケット） |
 | CloudFront | CDN + HTTPS + OAC認証 |
+| IAM | GitHub Actions専用ユーザー（最小権限） |
 | GitHub Actions | CI/CD — PRでビルド確認、mainで自動デプロイ |
 | CloudFormation | Infrastructure as Code（選択肢A） |
 | Terraform | Infrastructure as Code（選択肢B） |
 
-## インフラのデプロイ
+## セットアップ全体の流れ
+
+```
+1. インフラをデプロイ（TerraformまたはCloudFormation）
+2. GitHub Actions用IAMユーザーを作成
+3. GitHub Secretsに5つの値を登録
+4. mainへpush → 自動デプロイ
+```
+
+## Step 1: インフラのデプロイ
 
 ### 選択肢A: Terraform
 
@@ -169,9 +239,58 @@ aws cloudformation deploy \
   --parameter-overrides BucketName=バケット名
 ```
 
-## GitHub Actions CI/CDのセットアップ
+## Step 2: IAMユーザーの作成
 
-GitHub → Settings → Secrets and variables → Actions で以下のSecretsを設定する:
+GitHub Actions専用のIAMユーザーを最小権限で作成する。
+
+### 選択肢A: スクリプト（IAM管理者権限が必要）
+
+```bash
+bash scripts/setup-iam.sh
+```
+
+ユーザー作成・ポリシー付与・アクセスキー発行まで自動実行し、GitHub Secretsに登録する値を画面に表示する。
+
+### 選択肢B: AWSコンソール（手動）
+
+1. IAM → ユーザー → ユーザーを作成
+2. ユーザー名: `github-actions-portfolio`
+3. 「ポリシーを直接アタッチ」→「インラインポリシーを作成」→ 以下JSONを貼り付け:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "S3Deploy",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::バケット名",
+        "arn:aws:s3:::バケット名/*"
+      ]
+    },
+    {
+      "Sid": "CloudFrontInvalidation",
+      "Effect": "Allow",
+      "Action": "cloudfront:CreateInvalidation",
+      "Resource": "arn:aws:cloudfront::AWSアカウントID:distribution/DistributionID"
+    }
+  ]
+}
+```
+
+4. ユーザー作成後 →「セキュリティ認証情報」タブ →「アクセスキーを作成」
+5. `アクセスキーID`と`シークレットアクセスキー`をコピー（この画面でしか確認できない）
+
+## Step 3: GitHub Secrets の登録
+
+GitHub → Settings → Secrets and variables → Actions で以下の5つを登録:
 
 | Secret名 | 設定値 |
 |----------|--------|
@@ -212,7 +331,7 @@ bash scripts/destroy-cloudformation.sh <バケット名> <スタック名>
 
 # 例:
 bash scripts/destroy-cloudformation.sh \
-  portfolio-01-gratitude-journal-20240101 \
+  portfolio-01-gratitude-journal-2026 \
   portfolio-01-static-site
 ```
 
@@ -223,5 +342,6 @@ bash scripts/destroy-cloudformation.sh \
 - S3バケットは**プライベート** — CloudFrontはOAC（Origin Access Control）経由でのみアクセス。直接公開しない。
 - 403/404エラーは`index.html`にリダイレクト — ReactRouterのクライアントサイドルーティングを機能させるため。
 - CI/CDは2ジョブ構成: `build`（全イベントで実行）と`deploy`（mainのみ）に分離。
+- IAMユーザーは最小権限 — このプロジェクトのS3書き込みとCloudFront Invalidationのみ許可。
 - TerraformとCloudFormationは同一のインフラを構築する。用途に応じてどちらかを選択。
 - S3に`force_destroy = true`（Terraformのみ）— 一コマンドで全削除できるようにするため。
