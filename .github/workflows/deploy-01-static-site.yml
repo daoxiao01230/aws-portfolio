@@ -76,9 +76,10 @@ jobs:
           # 'lts/*' = 最新LTSを自動選択（バージョンが変わる可能性あり）
 
           cache: 'npm'
-          # cache: 'npm' = node_modulesをキャッシュしてインストール時間を短縮
-          # 理由: package-lock.jsonが変わらない限りキャッシュを再利用する。
-          #       毎回フルインストールするより約30〜60秒速くなる。
+          cache-dependency-path: 'aws-portfolio-01-static-site/package-lock.json'
+          # cache-dependency-path: リポジトリルートから見たパスを指定する必要がある
+          # 理由: defaults.run.working-directoryはrunステップのみに適用され、
+          #       usesステップ（setup-node）には適用されないため明示が必要
 
       # --------------------------------------------------------
       # ステップ3: 依存関係のインストール
