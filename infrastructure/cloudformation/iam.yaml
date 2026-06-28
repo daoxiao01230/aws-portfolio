@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Portfolio 01 - GitHub Actions IAM User'
+
+# ============================================================
+# パラメータ
+# template.yaml スタックの Outputs 値を使って入力する
+# ============================================================
+Parameters:
+  BucketName:
+    Type: String
+    Description: >
+      S3バケット名
+      例: portfolio-01-gratitude-journal-2026
+      （template.yaml の Outputs > BucketName の値）
+
+  CloudFrontDistributionId:
+    Type: String
+    Description: >
+      CloudFront Distribution ID
+      例: E1GRY3X08NCCGZ
+      （template.yaml の Outputs > CloudFrontDistributionId の値）
+
+# ============================================================
+# リソース
+# ============================================================
+Resources:
+
+  # ----------------------------------------------------------
+  # IAM ユーザー
+  # GitHub Actions 専用。コンソールログイン不可（キーのみ）。
+  # ----------------------------------------------------------
+  GitHubActionsUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: github-actions-portfolio
+
+  # ----------------------------------------------------------
+  # IAM ポリシー（最小権限）
+  # S3デプロイ + CloudFront Invalidation のみ許可
+  # ----------------------------------------------------------
+  GitHubActionsPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: portfolio-01-deploy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: S3Deploy
+            Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:DeleteObject
+              - s3:GetObject
+              - s3:ListBucket
+            Resource:
+              - !Sub 'arn:aws:s3:::${BucketName}'
+              - !Sub 'arn:aws:s3:::${BucketName}/*'
+
+          - Sid: CloudFrontInvalidation
+            Effect: Allow
+            Action:
+              - cloudfront:CreateInvalidation
+            Resource:
+              - !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistributionId}'
+      Users:
+        - !Ref GitHubActionsUser
+
+  # ----------------------------------------------------------
+  # アクセスキー
+  # Outputs に表示される。スタック削除後は再取得不可。
+  # ----------------------------------------------------------
+  GitHubActionsAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref GitHubActionsUser
+
+# ============================================================
+# 出力値
+# スタック作成後、Outputs タブから GitHub Secrets に登録する
+# ============================================================
+Outputs:
+  AccessKeyId:
+    Description: AWS_ACCESS_KEY_ID → GitHub Secrets に登録
+    Value: !Ref GitHubActionsAccessKey
+
+  SecretAccessKey:
+    Description: AWS_SECRET_ACCESS_KEY → GitHub Secrets に登録（⚠️ 一度しか表示されない）
+    Value: !GetAtt GitHubActionsAccessKey.SecretAccessKey
+
+  UserName:
+    Description: 作成された IAM ユーザー名
+    Value: !Ref GitHubActionsUser
