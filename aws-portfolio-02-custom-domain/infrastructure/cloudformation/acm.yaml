@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Portfolio 02 - ACM Certificate for gratitude.daoxiao.org'
+
+# ============================================================
+# 注意: このスタックは必ず us-east-1 でデプロイすること
+# 理由: CloudFront が使える ACM 証明書は us-east-1 のみ
+# デプロイコマンド:
+#   aws cloudformation deploy \
+#     --template-file acm.yaml \
+#     --stack-name portfolio-02-acm \
+#     --region us-east-1 \
+#     --parameter-overrides HostedZoneId=YOUR_HOSTED_ZONE_ID
+# ============================================================
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: gratitude.daoxiao.org
+    Description: カスタムドメイン名
+
+  HostedZoneId:
+    Type: String
+    Default: Z06510601ASWSVLJJY29P
+    Description: Route 53 の Hosted Zone ID（daoxiao.org）
+
+Resources:
+
+  # ----------------------------------------------------------
+  # ACM 証明書
+  # DNS 検証方式: Route 53 に CNAME レコードを自動追加して検証
+  # ----------------------------------------------------------
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+
+      # DNS 検証を選ぶ理由:
+      # メール検証より速く、自動更新に対応している
+      ValidationMethod: DNS
+
+      # Route 53 と連携して CNAME レコードを自動作成・検証
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZoneId
+
+      Tags:
+        - Key: Project
+          Value: aws-portfolio-02-custom-domain
+
+Outputs:
+  CertificateArn:
+    Description: ACM 証明書 ARN → cloudfront-v2.yaml の AcmCertificateArn パラメータに使用
+    Value: !Ref Certificate

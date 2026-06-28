@@ -1,0 +1,135 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Portfolio 02 - CloudFront + Custom Domain (updates portfolio-01-cloudfront stack)'
+
+# ============================================================
+# Phase 1 の cloudfront.yaml に以下を追加したバージョン:
+#   - Aliases: カスタムドメイン（gratitude.daoxiao.org）
+#   - ViewerCertificate: ACM 証明書に切り替え
+#
+# デプロイ方法: portfolio-01-cloudfront スタックを UPDATE する
+#   aws cloudformation update-stack \
+#     --stack-name portfolio-01-cloudfront \
+#     --template-body $template \
+#     --parameters ...
+# ============================================================
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: S3 バケット名（Phase 1 の portfolio-01-s3 Outputs > BucketName）
+
+  BucketArn:
+    Type: String
+    Description: S3 バケット ARN（Phase 1 の portfolio-01-s3 Outputs > BucketArn）
+
+  BucketRegionalDomainName:
+    Type: String
+    Description: S3 リージョナルドメイン（Phase 1 の portfolio-01-s3 Outputs > BucketRegionalDomainName）
+
+  DomainName:
+    Type: String
+    Default: gratitude.daoxiao.org
+    Description: カスタムドメイン名
+
+  AcmCertificateArn:
+    Type: String
+    Description: ACM 証明書 ARN（portfolio-02-acm Outputs > CertificateArn、us-east-1 のもの）
+
+Resources:
+
+  CloudFrontOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${BucketName}-oac'
+        Description: !Sub 'OAC for ${BucketName}'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        HttpVersion: http2
+        IPV6Enabled: true
+        DefaultRootObject: index.html
+
+        # Phase 2 で追加: カスタムドメインの設定
+        # Phase 1 ではこの項目を省略していた
+        Aliases:
+          - !Ref DomainName
+
+        Origins:
+          - Id: !Sub 'S3-${BucketName}'
+            DomainName: !Ref BucketRegionalDomainName
+            OriginAccessControlId: !GetAtt CloudFrontOAC.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+
+        DefaultCacheBehavior:
+          TargetOriginId: !Sub 'S3-${BucketName}'
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+          MinTTL: 0
+          DefaultTTL: 3600
+          MaxTTL: 86400
+
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+
+        # Phase 2 で変更: デフォルト証明書 → ACM 証明書に切り替え
+        ViewerCertificate:
+          # Phase 1
+          # CloudFrontDefaultCertificate: true
+          #
+          # Phase 2: カスタムドメイン用 ACM 証明書を使用
+          AcmCertificateArn: !Ref AcmCertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+
+      Tags:
+        - Key: Project
+          Value: aws-portfolio-02-custom-domain
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BucketName
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${BucketArn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
+
+Outputs:
+  WebsiteURL:
+    Description: カスタムドメイン URL
+    Value: !Sub 'https://${DomainName}'
+
+  CloudFrontDomainName:
+    Description: CloudFront ドメイン名 → route53.yaml の CloudFrontDomainName パラメータに使用
+    Value: !GetAtt CloudFrontDistribution.DomainName
+
+  CloudFrontDistributionId:
+    Description: CloudFront Distribution ID
+    Value: !Ref CloudFrontDistribution
