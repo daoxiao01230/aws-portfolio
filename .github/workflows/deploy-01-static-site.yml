@@ -10,25 +10,32 @@
 #   [build] → [deploy] (mainへのpushのみ)
 # ============================================================
 
-name: CI/CD - Build and Deploy
+name: Portfolio 01 - CI/CD
 
 # ============================================================
 # トリガー設定
 # ============================================================
 on:
-  # mainブランチへのpush時（マージ完了後）に自動デプロイ
   push:
     branches: [main]
+    # aws-portfolio-01-static-site/ 配下の変更時のみ発火
+    # 理由: Phase 2以降を追加したとき、Phase 1のワークフローが誤発火しないようにする
+    paths:
+      - 'aws-portfolio-01-static-site/**'
 
-  # mainへのPR作成・更新時にビルド確認のみ実行
-  # 理由: マージ前にビルドエラーを検出する。デプロイはしない。
   pull_request:
     branches: [main]
+    paths:
+      - 'aws-portfolio-01-static-site/**'
 
-  # 手動実行トリガー
-  # 理由: 緊急ロールバックや設定変更後の強制デプロイに使う
-  # GitHub UI: Actions タブ → Run workflow ボタンで実行
   workflow_dispatch:
+
+# ============================================================
+# デフォルト作業ディレクトリ
+# ============================================================
+defaults:
+  run:
+    working-directory: aws-portfolio-01-static-site
 
 # ============================================================
 # ジョブ定義
