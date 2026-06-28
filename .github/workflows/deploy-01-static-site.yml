@@ -146,6 +146,7 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
+          cache-dependency-path: 'aws-portfolio-01-static-site/package-lock.json'
 
       # --------------------------------------------------------
       # ステップ3: 依存関係インストール
