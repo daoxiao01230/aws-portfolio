@@ -1,41 +1,210 @@
-name: Deploy to S3 + CloudFront
+# ============================================================
+# Portfolio 01 - CI/CD パイプライン
+# ============================================================
+# トリガー:
+#   - main ブランチへの push → ビルド + S3デプロイ + CF Invalidation
+#   - PR（mainへ）          → ビルド確認のみ（デプロイしない）
+#   - 手動実行              → workflow_dispatch で任意タイミングでデプロイ可能
+#
+# ジョブ構成:
+#   [build] → [deploy] (mainへのpushのみ)
+# ============================================================
 
+name: CI/CD - Build and Deploy
+
+# ============================================================
+# トリガー設定
+# ============================================================
 on:
+  # mainブランチへのpush時（マージ完了後）に自動デプロイ
   push:
     branches: [main]
 
+  # mainへのPR作成・更新時にビルド確認のみ実行
+  # 理由: マージ前にビルドエラーを検出する。デプロイはしない。
+  pull_request:
+    branches: [main]
+
+  # 手動実行トリガー
+  # 理由: 緊急ロールバックや設定変更後の強制デプロイに使う
+  # GitHub UI: Actions タブ → Run workflow ボタンで実行
+  workflow_dispatch:
+
+# ============================================================
+# ジョブ定義
+# ============================================================
 jobs:
-  deploy:
+
+  # ----------------------------------------------------------
+  # ジョブ1: ビルド
+  # PRとmainへのpush両方で実行。ビルドが壊れていないか確認する。
+  # ----------------------------------------------------------
+  build:
+    name: Build
     runs-on: ubuntu-latest
+    # runs-on の選択肢:
+    # ubuntu-latest  = Ubuntu最新版（無料枠あり・今回の設定）
+    # windows-latest = Windows最新版
+    # macos-latest   = macOS最新版（コストが高い）
 
     steps:
+      # --------------------------------------------------------
+      # ステップ1: リポジトリのコードをチェックアウト
+      # --------------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
+        # @v4 = actions/checkout のバージョン4（現在の最新安定版）
+        # 理由: バージョンを固定することで予期しない動作変更を防ぐ
+
+      # --------------------------------------------------------
+      # ステップ2: Node.jsのセットアップ
+      # --------------------------------------------------------
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          # node-version の選択肢:
+          # '20'  = Node.js 20 LTS（今回の設定・2026年まで長期サポート）
+          # '18'  = Node.js 18 LTS
+          # 'lts/*' = 最新LTSを自動選択（バージョンが変わる可能性あり）
+
+          cache: 'npm'
+          # cache: 'npm' = node_modulesをキャッシュしてインストール時間を短縮
+          # 理由: package-lock.jsonが変わらない限りキャッシュを再利用する。
+          #       毎回フルインストールするより約30〜60秒速くなる。
+
+      # --------------------------------------------------------
+      # ステップ3: 依存関係のインストール
+      # --------------------------------------------------------
+      - name: Install dependencies
+        run: npm ci
+        # npm ci vs npm install の違い:
+        # npm ci      = package-lock.json を厳密に再現（CI/CD向け・今回の設定）
+        # npm install = package.jsonに従いインストール（lock.jsonを更新する可能性あり）
+        # 理由: CI環境では再現性が重要。package-lock.jsonと差異があるとエラーになる。
+
+      # --------------------------------------------------------
+      # ステップ4: ビルド
+      # --------------------------------------------------------
+      - name: Build
+        run: npm run build
+        # react-scripts build を実行
+        # 成功すると build/ ディレクトリに静的ファイルが生成される
+        # 失敗するとジョブが停止し、後続のdeployジョブも実行されない
+
+        # -------------------------------------------------------
+        # 【設定しないステップ】
+        # -------------------------------------------------------
+        #
+        # npm test: テスト実行
+        #   理由: Phase 1ではテストコードを作成していないため省略。
+        #         Phase 3以降でテストを追加する際に組み込む。
+        #
+        # npm run lint: Lintチェック
+        #   理由: ESLint設定はデフォルトのまま。
+        #         厳格なLintルールを追加した際に組み込む。
+        #
+        # Upload artifact: ビルド成果物の保存
+        #   理由: buildジョブとdeployジョブでランナーが異なるため、
+        #         本来はartifactで引き渡すのがベストプラクティス。
+        #         今回はシンプルさを優先し、deployジョブで再ビルドする。
+
+  # ----------------------------------------------------------
+  # ジョブ2: デプロイ
+  # mainへのpushのみ実行。buildジョブが成功した後に実行される。
+  # ----------------------------------------------------------
+  deploy:
+    name: Deploy to AWS
+    runs-on: ubuntu-latest
+    needs: build
+    # needs: build = buildジョブが成功した場合のみ実行
+    # 理由: ビルドが失敗したファイルをデプロイしないようにする
+
+    # mainへのpush または 手動実行のみデプロイ（PRは除外）
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      # --------------------------------------------------------
+      # ステップ1: チェックアウト（deployジョブでも必要）
+      # --------------------------------------------------------
       - name: Checkout
         uses: actions/checkout@v4
 
+      # --------------------------------------------------------
+      # ステップ2: Node.jsセットアップ
+      # --------------------------------------------------------
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
+      # --------------------------------------------------------
+      # ステップ3: 依存関係インストール
+      # --------------------------------------------------------
       - name: Install dependencies
         run: npm ci
 
+      # --------------------------------------------------------
+      # ステップ4: ビルド
+      # --------------------------------------------------------
       - name: Build
         run: npm run build
 
+      # --------------------------------------------------------
+      # ステップ5: AWS認証情報の設定
+      # --------------------------------------------------------
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
+          # secrets はGitHub → Settings → Secrets and variables → Actions で設定
+          # AWS_ACCESS_KEY_ID        = IAMユーザーのアクセスキーID
+          # AWS_SECRET_ACCESS_KEY    = IAMユーザーのシークレットアクセスキー
+          # AWS_REGION               = リージョン（例: us-east-1）
+          #
+          # 【設定しないもの】
+          # role-to-assume: IAMロールを引き受ける方法（OIDC）
+          #   理由: よりセキュアだが設定が複雑。
+          #         Phase 6（DevOps）でOIDCに移行予定。
 
+      # --------------------------------------------------------
+      # ステップ6: S3へデプロイ
+      # --------------------------------------------------------
       - name: Deploy to S3
         run: aws s3 sync build/ s3://${{ secrets.S3_BUCKET_NAME }} --delete
+        # aws s3 sync の説明:
+        # build/           = ローカルのビルドディレクトリ
+        # s3://BUCKET_NAME = デプロイ先のS3バケット
+        # --delete         = S3にあってローカルにないファイルを削除する
+        #                    理由: 古いファイルが残らないようにする
+        #
+        # 【設定しないオプション】
+        # --exclude "*.map" : ソースマップファイルを除外
+        #   理由: Phase 1ではソースマップの公開可否を考慮しない。
+        #         本番環境では除外を検討する。
+        # --cache-control   : キャッシュヘッダーを個別設定
+        #   理由: 現在はCloudFrontのデフォルトTTLに従う。
+        #         index.htmlのみ短いTTLを設定する最適化は後で実施。
 
+      # --------------------------------------------------------
+      # ステップ7: CloudFrontキャッシュの無効化
+      # --------------------------------------------------------
       - name: Invalidate CloudFront cache
         run: |
           aws cloudfront create-invalidation \
             --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/*"
+        # CLOUDFRONT_DISTRIBUTION_ID = CloudFrontのディストリビューションID
+        # --paths "/*" = すべてのファイルのキャッシュを削除
+        #
+        # 理由: S3にデプロイしても、CloudFrontがキャッシュを持っている間は
+        #       古いファイルが配信され続ける。Invalidationで強制的にクリアする。
+        #
+        # 【最適化案（Phase 2以降）】
+        # --paths "/index.html" のみInvalidationし、
+        # JS/CSSファイルはコンテンツハッシュ付きファイル名（例: main.abc123.js）を
+        # 使うことでInvalidationコストを削減できる。
+        # （react-scripts buildはデフォルトでハッシュ付きファイル名を生成する）
