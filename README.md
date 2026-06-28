@@ -10,8 +10,8 @@ Each phase is an independently deployable product. Infrastructure is defined as 
 
 | Phase | Project | Core Services | Status |
 |-------|---------|---------------|--------|
-| 01 | [Static Site Hosting](./aws-portfolio-01-static-site/) | S3, CloudFront, IAM, GitHub Actions | ✅ Complete |
-| 02 | Custom Domain + HTTPS | ACM, Route 53 | 🔧 In Progress |
+| 01 | [Static Site Hosting](./aws-portfolio-01-static-site/) | S3, CloudFront, IAM, GitHub Actions | ✅ [Live](https://d1boukx6owzm8y.cloudfront.net/) |
+| 02 | Custom Domain + HTTPS | ACM, Route 53 | 📋 Planned |
 | 03 | Serverless Application | Cognito, API Gateway, Lambda, DynamoDB | 📋 Planned |
 | 04 | Observability | CloudWatch, X-Ray, SNS | 📋 Planned |
 | 05 | Containers | ECS Fargate, ALB, RDS | 📋 Planned |
