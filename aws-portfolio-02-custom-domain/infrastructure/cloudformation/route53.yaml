@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Portfolio 02 - Route 53 DNS record for gratitude.daoxiao.org'
+
+Parameters:
+  HostedZoneId:
+    Type: String
+    Default: Z06510601ASWSVLJJY29P
+    Description: Route 53 の Hosted Zone ID（daoxiao.org）
+
+  DomainName:
+    Type: String
+    Default: gratitude.daoxiao.org
+    Description: カスタムドメイン名
+
+  CloudFrontDomainName:
+    Type: String
+    Description: CloudFront ドメイン名（cloudfront-v2.yaml の Outputs > CloudFrontDomainName）
+    # 例: d1boukx6owzm8y.cloudfront.net
+
+Resources:
+
+  # ----------------------------------------------------------
+  # Route 53 A レコード（エイリアス）
+  # gratitude.daoxiao.org → CloudFront ディストリビューション
+  #
+  # 通常の A レコードは IP アドレスを指定するが、
+  # CloudFront はエイリアスレコード（AliasTarget）を使う。
+  # 理由: CloudFront の IP は動的に変化するため IP 直指定はできない。
+  #       エイリアスは AWS 内部で解決するため、追加料金なし。
+  # ----------------------------------------------------------
+  DNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        # CloudFront のエイリアスには必ず Z2FDTNDATAQYW2 を指定する
+        # これは CloudFront 専用のグローバル Hosted Zone ID（固定値）
+        HostedZoneId: Z2FDTNDATAQYW2
+        DNSName: !Ref CloudFrontDomainName
+        EvaluateTargetHealth: false
+
+Outputs:
+  URL:
+    Description: 設定完了後にアクセスできる URL（DNS 反映に数分かかる場合あり）
+    Value: !Sub 'https://${DomainName}'
