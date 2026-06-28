@@ -140,9 +140,10 @@ Add these secrets in GitHub → Settings → Secrets and variables → Actions:
 |--------|-------|
 | `AWS_ACCESS_KEY_ID` | IAM user access key |
 | `AWS_SECRET_ACCESS_KEY` | IAM user secret key |
-| `AWS_REGION` | e.g. `us-east-1` |
 | `S3_BUCKET_NAME` | From Terraform/CFN output |
 | `CLOUDFRONT_DISTRIBUTION_ID` | From Terraform/CFN output |
+
+> `AWS_REGION` は不要。`ap-northeast-1` をワークフロー内にハードコード済み。
 
 **CI/CD behavior:**
 - `push` to `main` → build + deploy + CloudFront invalidation

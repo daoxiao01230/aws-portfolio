@@ -45,3 +45,55 @@ aws-portfolio/
 ## IaC Strategy
 
 Every phase is implemented twice — once with **Terraform** and once with **CloudFormation** — to demonstrate proficiency with both tools.
+
+---
+
+---
+
+# AWS Portfolio — daoxiao（日本語）
+
+AWS のクラウドアーキテクチャスキルを段階的に示すポートフォリオ。静的ホスティングからエンタープライズ DevOps まで、6 フェーズで構成。
+
+各フェーズは独立してデプロイ可能なプロダクトとして設計。インフラは Terraform と CloudFormation の両方でコード化している。
+
+---
+
+## ポートフォリオ ロードマップ
+
+| Phase | プロジェクト | 主要サービス | ステータス |
+|-------|------------|------------|----------|
+| 01 | [静的サイトホスティング](./aws-portfolio-01-static-site/) | S3, CloudFront, IAM, GitHub Actions | ✅ [公開中](https://d1boukx6owzm8y.cloudfront.net/) |
+| 02 | カスタムドメイン + HTTPS | ACM, Route 53 | 📋 予定 |
+| 03 | サーバーレスアプリ | Cognito, API Gateway, Lambda, DynamoDB | 📋 予定 |
+| 04 | オブザーバビリティ | CloudWatch, X-Ray, SNS | 📋 予定 |
+| 05 | コンテナ | ECS Fargate, ALB, RDS | 📋 予定 |
+| 06 | エンタープライズ DevOps | CodePipeline, Terraform, GitHub Actions | 📋 予定 |
+
+---
+
+## アーキテクチャの進化
+
+```
+Phase 01           Phase 02               Phase 03
+S3 + CloudFront → + Route53/ACM       → + Cognito/Lambda/DynamoDB
+（静的配信）        （カスタムドメイン）    （サーバーレス）
+```
+
+---
+
+## リポジトリ構造
+
+```
+aws-portfolio/
+├── aws-portfolio-01-static-site/   # Phase 01
+├── aws-portfolio-02-custom-domain/ # Phase 02（準備中）
+└── .github/workflows/
+    ├── deploy-01-static-site.yml   # Phase 01 の変更時のみ発火
+    └── deploy-02-custom-domain.yml # Phase 02 の変更時のみ発火
+```
+
+---
+
+## IaC 方針
+
+各フェーズのインフラは **Terraform** と **CloudFormation** の両方で実装し、両ツールへの習熟を示す。
