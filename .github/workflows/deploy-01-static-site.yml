@@ -35,7 +35,7 @@ on:
 # ============================================================
 defaults:
   run:
-    working-directory: aws-portfolio-01-static-site
+    working-directory: aws-portfolio-01-static-site/react
 
 # ============================================================
 # ジョブ定義
@@ -76,7 +76,7 @@ jobs:
           # 'lts/*' = 最新LTSを自動選択（バージョンが変わる可能性あり）
 
           cache: 'npm'
-          cache-dependency-path: 'aws-portfolio-01-static-site/package-lock.json'
+          cache-dependency-path: 'aws-portfolio-01-static-site/react/package-lock.json'
           # cache-dependency-path: リポジトリルートから見たパスを指定する必要がある
           # 理由: defaults.run.working-directoryはrunステップのみに適用され、
           #       usesステップ（setup-node）には適用されないため明示が必要
@@ -146,7 +146,7 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: 'aws-portfolio-01-static-site/package-lock.json'
+          cache-dependency-path: 'aws-portfolio-01-static-site/react/package-lock.json'
 
       # --------------------------------------------------------
       # ステップ3: 依存関係インストール
