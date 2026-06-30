@@ -1,69 +1,86 @@
 #!/bin/bash
 # ============================================================
-# CloudFormation 全リソース削除スクリプト
-# 実行すると S3・CloudFront・OAC・バケットポリシーが全て削除される
+# CloudFormation 全リソース削除スクリプト（Phase 01）
+# 対象スタック（削除順序）:
+#   1. portfolio-01-iam        （IAMユーザー）
+#   2. portfolio-01-cloudfront （CloudFront + OAC + BucketPolicy）
+#   3. portfolio-01-s3         （S3バケット）
 # ============================================================
 # 使い方:
-#   bash scripts/destroy-cloudformation.sh <バケット名> <スタック名>
+#   bash scripts/destroy-cloudformation.sh <バケット名>
 #
 #   例:
-#   bash scripts/destroy-cloudformation.sh \
-#     portfolio-01-gratitude-journal-20240101 \
-#     portfolio-01-static-site
+#   bash scripts/destroy-cloudformation.sh portfolio-01-gratitude-2026-v2
 #
 # 前提条件:
 #   - AWS CLIの認証情報が設定済みであること（aws configure）
-#   - 対象スタックが存在すること
+#   - 3つのスタックが存在すること
 # ============================================================
-# CloudFormationがS3バケットを削除できない理由:
-#   CloudFormationはバケットに中身があると削除できない仕様。
-#   このスクリプトでは先にS3を空にしてからスタックを削除する。
+# 削除順序の理由:
+#   portfolio-01-cloudfront は portfolio-01-s3 の BucketPolicy を持つため、
+#   S3スタックより先に削除する必要がある。
+#   IAMスタックは依存関係なしのため最初に削除。
 # ============================================================
 
-set -e  # エラー発生時に即座に停止
+set -e
 
-# 引数チェック
 BUCKET_NAME=${1}
-STACK_NAME=${2:-"portfolio-01-static-site"}  # デフォルトスタック名
+STACK_IAM="portfolio-01-iam"
+STACK_CF="portfolio-01-cloudfront"
+STACK_S3="portfolio-01-s3"
 
 if [ -z "$BUCKET_NAME" ]; then
   echo "エラー: バケット名を引数で指定してください"
-  echo "使い方: bash scripts/destroy-cloudformation.sh <バケット名> [スタック名]"
+  echo "使い方: bash scripts/destroy-cloudformation.sh <バケット名>"
+  echo "例:     bash scripts/destroy-cloudformation.sh portfolio-01-gratitude-2026-v2"
   exit 1
 fi
 
 echo "========================================"
-echo "  CloudFormation 全リソース削除"
+echo "  CloudFormation 全リソース削除（Phase 01）"
 echo "  バケット名 : $BUCKET_NAME"
-echo "  スタック名 : $STACK_NAME"
-echo "  対象      : S3 + CloudFront + OAC"
+echo "  削除対象  :"
+echo "    1. $STACK_IAM"
+echo "    2. $STACK_CF"
+echo "    3. $STACK_S3"
 echo "========================================"
 echo ""
+echo "  注意: 実行するとサイトがオフラインになります"
+echo ""
 
-# 確認プロンプト（誤操作防止）
 read -p "本当に全リソースを削除しますか？ (yes と入力して確認): " CONFIRM
 if [ "$CONFIRM" != "yes" ]; then
   echo "キャンセルしました。"
   exit 0
 fi
 
-# ステップ1: S3バケットを空にする
+# ステップ1: IAMスタック削除
+echo ""
+echo ">>> [1/4] IAMスタックを削除しています... ($STACK_IAM)"
+aws cloudformation delete-stack --stack-name $STACK_IAM
+aws cloudformation wait stack-delete-complete --stack-name $STACK_IAM
+echo "    完了"
+
+# ステップ2: CloudFrontスタック削除（BucketPolicyも削除される）
+echo ""
+echo ">>> [2/4] CloudFrontスタックを削除しています... ($STACK_CF)"
+aws cloudformation delete-stack --stack-name $STACK_CF
+aws cloudformation wait stack-delete-complete --stack-name $STACK_CF
+echo "    完了"
+
+# ステップ3: S3バケットを空にする
 # 理由: CloudFormationはバケットに中身があると削除できない
 echo ""
-echo ">>> [1/3] S3バケットのファイルを削除しています..."
+echo ">>> [3/4] S3バケットのファイルを削除しています... ($BUCKET_NAME)"
 aws s3 rm s3://$BUCKET_NAME --recursive
-echo "    S3バケットが空になりました"
+echo "    完了"
 
-# ステップ2: CloudFormationスタックを削除
+# ステップ4: S3スタック削除
 echo ""
-echo ">>> [2/3] CloudFormationスタックを削除しています..."
-aws cloudformation delete-stack --stack-name $STACK_NAME
-echo "    削除リクエストを送信しました（完了まで数分かかります）"
-
-# ステップ3: 削除完了を待機
-echo ""
-echo ">>> [3/3] 削除完了を待機しています..."
-aws cloudformation wait stack-delete-complete --stack-name $STACK_NAME
+echo ">>> [4/4] S3スタックを削除しています... ($STACK_S3)"
+aws cloudformation delete-stack --stack-name $STACK_S3
+aws cloudformation wait stack-delete-complete --stack-name $STACK_S3
+echo "    完了"
 
 echo ""
 echo "========================================"
