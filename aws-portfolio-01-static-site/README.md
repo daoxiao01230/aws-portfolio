@@ -153,6 +153,7 @@ Add these secrets in GitHub → Settings → Secrets and variables → Actions:
 ## Local Development
 
 ```bash
+cd react
 npm install
 npm start
 ```
@@ -347,6 +348,7 @@ GitHub → Settings → Secrets and variables → Actions で以下の5つを登
 ## ローカル開発
 
 ```bash
+cd react
 npm install
 npm start
 ```

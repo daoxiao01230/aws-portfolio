@@ -72,7 +72,7 @@ Dependencies lock file is not found in /home/runner/work/aws-portfolio/aws-portf
   with:
     node-version: '22'
     cache: 'npm'
-    cache-dependency-path: 'aws-portfolio-01-static-site/package-lock.json'
+    cache-dependency-path: 'aws-portfolio-01-static-site/react/package-lock.json'
 ```
 
 ---
