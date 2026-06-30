@@ -33,7 +33,10 @@ S3 + CloudFront → + Route53/ACM   → + Cognito/Lambda/DynamoDB
 
 ```
 aws-portfolio/
+├── docs/                           # Portfolio-wide documentation
+│   └── Cost-Estimation.md         # AWS cost breakdown across all phases
 ├── aws-portfolio-01-static-site/   # Phase 01
+│   └── docs/                      # Phase 01 specific docs
 ├── aws-portfolio-02-custom-domain/ # Phase 02 (coming soon)
 └── .github/workflows/
     ├── deploy-01-static-site.yml   # triggers on Phase 01 changes only
@@ -85,7 +88,10 @@ S3 + CloudFront → + Route53/ACM       → + Cognito/Lambda/DynamoDB
 
 ```
 aws-portfolio/
+├── docs/                           # ポートフォリオ全体の共通ドキュメント
+│   └── Cost-Estimation.md         # 全Phase の AWS コスト試算
 ├── aws-portfolio-01-static-site/   # Phase 01
+│   └── docs/                      # Phase 01 専用ドキュメント
 ├── aws-portfolio-02-custom-domain/ # Phase 02（準備中）
 └── .github/workflows/
     ├── deploy-01-static-site.yml   # Phase 01 の変更時のみ発火
