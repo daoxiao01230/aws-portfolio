@@ -310,6 +310,54 @@ resource "aws_cloudfront_distribution" "website" {
 
 
 # ============================================================
+# IAM ユーザー（GitHub Actions 専用）
+# GitHub Actions から S3 デプロイ + CloudFront Invalidation を行うユーザー
+# ============================================================
+resource "aws_iam_user" "github_actions" {
+  name = "github-actions-portfolio-01"
+
+  tags = {
+    Project = "aws-portfolio-01-static-site"
+  }
+}
+
+resource "aws_iam_user_policy" "github_actions" {
+  name = "portfolio-01-deploy-policy"
+  user = aws_iam_user.github_actions.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "S3Deploy"
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          aws_s3_bucket.website.arn,
+          "${aws_s3_bucket.website.arn}/*"
+        ]
+      },
+      {
+        Sid      = "CloudFrontInvalidation"
+        Effect   = "Allow"
+        Action   = "cloudfront:CreateInvalidation"
+        Resource = aws_cloudfront_distribution.website.arn
+      }
+    ]
+  })
+}
+
+resource "aws_iam_access_key" "github_actions" {
+  user = aws_iam_user.github_actions.name
+}
+
+
+# ============================================================
 # S3バケットポリシー
 # CloudFrontからのみS3へのアクセスを許可する
 # ============================================================
