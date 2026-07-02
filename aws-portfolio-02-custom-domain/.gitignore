@@ -1,7 +1,3 @@
-# build outputs (leftover from pre-restructure)
-/node_modules
-/build
-
 # terraform
 infrastructure/terraform/.terraform
 infrastructure/terraform/.terraform.lock.hcl
