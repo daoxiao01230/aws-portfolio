@@ -41,7 +41,8 @@ aws-portfolio/
 │   └── docs/troubleshooting.md    # DNS clientHold investigation (RDAP-based diagnosis)
 ├── aws-portfolio-03-serverless/    # Phase 03 — ✅ live
 │   ├── docs/                      # Architecture & Frontend-Design rationale
-│   ├── infrastructure/terraform/  # Cognito, DynamoDB, Lambda, API Gateway (HTTP API + JWT authorizer), S3+CloudFront+ACM+Route53
+│   ├── infrastructure/terraform/  # Cognito, DynamoDB, Lambda, API Gateway (HTTP API + JWT authorizer), S3+CloudFront+ACM+Route53 — deployed
+│   ├── infrastructure/cloudformation/ # same architecture, 9 templates — reference only, never deployed
 │   ├── backend/lambda/            # Python 3.12 handlers (create/list/update/delete entry)
 │   └── frontend/                  # Login/signup + CRUD UI, deployed to journal.daoxiao.org
 └── .github/workflows/
@@ -55,7 +56,7 @@ aws-portfolio/
 
 ## IaC Strategy
 
-Phase 01 is implemented twice — once with **Terraform** and once with **CloudFormation** — to demonstrate proficiency with both tools. Phase 02 was originally planned the same way, but its CloudFormation path depended on updating Phase 01's CloudFormation stack; once that stack was deleted during Phase 01's Terraform migration, Phase 02 was implemented in Terraform only (using an `import` block to adopt Phase 01's existing CloudFront distribution). The unused CloudFormation templates are kept in `aws-portfolio-02-custom-domain/infrastructure/cloudformation/` for reference — see that phase's README for details.
+Phase 01 is implemented twice — once with **Terraform** and once with **CloudFormation** — to demonstrate proficiency with both tools. Phase 02 was originally planned the same way, but its CloudFormation path depended on updating Phase 01's CloudFormation stack; once that stack was deleted during Phase 01's Terraform migration, Phase 02 was implemented in Terraform only (using an `import` block to adopt Phase 01's existing CloudFront distribution). The unused CloudFormation templates are kept in `aws-portfolio-02-custom-domain/infrastructure/cloudformation/` for reference — see that phase's README for details. Phase 03 picked the dual-implementation approach back up: 9 CloudFormation templates in `aws-portfolio-03-serverless/infrastructure/cloudformation/` mirror the Terraform-managed live infrastructure (Cognito, DynamoDB, Lambda, API Gateway, S3+CloudFront+ACM+Route53) but are reference-only and never deployed, since deploying them would create duplicate resources alongside the real ones.
 
 ---
 
@@ -104,7 +105,8 @@ aws-portfolio/
 │   └── docs/troubleshooting.md    # DNS clientHold調査記録（RDAPによる診断）
 ├── aws-portfolio-03-serverless/    # Phase 03 — ✅ 公開中
 │   ├── docs/                      # アーキテクチャ・フロントエンド設計の理由
-│   ├── infrastructure/terraform/  # Cognito, DynamoDB, Lambda, API Gateway (HTTP API + JWT authorizer), S3+CloudFront+ACM+Route53
+│   ├── infrastructure/terraform/  # Cognito, DynamoDB, Lambda, API Gateway (HTTP API + JWT authorizer), S3+CloudFront+ACM+Route53 — 実際にデプロイ
+│   ├── infrastructure/cloudformation/ # 同じ構成を9テンプレートで — 参照実装のみ・未デプロイ
 │   ├── backend/lambda/            # Python 3.12 ハンドラー（日記のCRUD）
 │   └── frontend/                  # ログイン/サインアップ + CRUD UI（journal.daoxiao.orgで公開中）
 └── .github/workflows/
@@ -118,4 +120,4 @@ aws-portfolio/
 
 ## IaC 方針
 
-Phase 01 のインフラは **Terraform** と **CloudFormation** の両方で実装し、両ツールへの習熟を示している。Phase 02 も当初は同様の二重実装を計画していたが、そのCloudFormation経路はPhase 01のCloudFormationスタックを更新する設計だったため、Phase 01がTerraformへ移行しそのスタックが削除された時点で前提が崩れた。そのためPhase 02はTerraformのみで実装し（`import`ブロックでPhase 01の既存CloudFrontディストリビューションを引き継ぐ方式）、未使用のCloudFormationテンプレートは`aws-portfolio-02-custom-domain/infrastructure/cloudformation/`に参考として残している。詳細は当該フェーズのREADMEを参照。
+Phase 01 のインフラは **Terraform** と **CloudFormation** の両方で実装し、両ツールへの習熟を示している。Phase 02 も当初は同様の二重実装を計画していたが、そのCloudFormation経路はPhase 01のCloudFormationスタックを更新する設計だったため、Phase 01がTerraformへ移行しそのスタックが削除された時点で前提が崩れた。そのためPhase 02はTerraformのみで実装し（`import`ブロックでPhase 01の既存CloudFrontディストリビューションを引き継ぐ方式）、未使用のCloudFormationテンプレートは`aws-portfolio-02-custom-domain/infrastructure/cloudformation/`に参考として残している。詳細は当該フェーズのREADMEを参照。Phase 03では二重実装の方針を再開し、`aws-portfolio-03-serverless/infrastructure/cloudformation/`に9本のCloudFormationテンプレートを用意した。Terraformで稼働中の実インフラ（Cognito・DynamoDB・Lambda・API Gateway・S3+CloudFront+ACM+Route53）と同じ構成をCloudFormationでも記述しているが、これらは参照実装のみでデプロイはしない（デプロイすると実リソースと重複するリソースが作成されてしまうため）。

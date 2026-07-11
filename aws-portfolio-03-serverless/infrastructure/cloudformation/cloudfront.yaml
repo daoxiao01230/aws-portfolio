@@ -1,0 +1,149 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Portfolio 03 - CloudFront + BucketPolicy (journal.daoxiao.org)'
+
+# 参照実装のみ・未デプロイ（dynamodb.yaml 冒頭のコメント参照）
+#
+# Phase 1/2はCloudFrontデフォルト証明書→ACM証明書の2段階だったが、
+# Phase 3は最初からカスタムドメイン運用のため、OAC・Distribution・
+# カスタムドメインエイリアスを1つのテンプレートにまとめている
+# （Terraformのcloudfront.tfと同じ構成）
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: s3-frontend.yaml の Outputs > BucketName の値
+
+  BucketArn:
+    Type: String
+    Description: s3-frontend.yaml の Outputs > BucketArn の値
+
+  BucketRegionalDomainName:
+    Type: String
+    Description: s3-frontend.yaml の Outputs > BucketRegionalDomainName の値
+
+  AcmCertificateArn:
+    Type: String
+    Description: acm.yaml の Outputs > CertificateArn の値（us-east-1で取得したもの）
+
+  DomainName:
+    Type: String
+    Default: journal.daoxiao.org
+
+Resources:
+
+  # ----------------------------------------------------------
+  # CloudFront Origin Access Control（OAC）
+  # ----------------------------------------------------------
+  CloudFrontOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${BucketName}-oac'
+        Description: !Sub 'OAC for ${BucketName}'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # ----------------------------------------------------------
+  # CloudFront ディストリビューション
+  # ----------------------------------------------------------
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        HttpVersion: http2
+        IPV6Enabled: true
+        DefaultRootObject: index.html
+        Aliases:
+          - !Ref DomainName
+
+        Origins:
+          - Id: !Sub 'S3-${BucketName}'
+            DomainName: !Ref BucketRegionalDomainName
+            OriginAccessControlId: !GetAtt CloudFrontOAC.Id
+            # OAC使用時はS3OriginConfigを空で指定する必要がある（CFnの仕様）
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+
+        DefaultCacheBehavior:
+          TargetOriginId: !Sub 'S3-${BucketName}'
+          ViewerProtocolPolicy: redirect-to-https
+          # 静的ファイル配信のみなのでGET/HEADで十分。
+          # POST/PUT/DELETEはAPI Gateway（別ドメイン）宛のため、CloudFrontを経由しない
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+          # デプロイ後は `aws cloudfront create-invalidation --paths "/*"` を
+          # 実行しないと、この default_ttl(1時間) の間は古いファイルが配信され続ける
+          MinTTL: 0
+          DefaultTTL: 3600
+          MaxTTL: 86400
+
+        # 現状このReactアプリはクライアントサイドルーティングを使っていないため
+        # 実際には403/404が発生する経路は無いが、将来react-router等を
+        # 導入した際に無変更で動くよう、Phase 1と同じフォールバックを設定しておく
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+
+        ViewerCertificate:
+          AcmCertificateArn: !Ref AcmCertificateArn
+          # "sni-only" = 追加コストなしで全モダンブラウザに対応
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+
+        Restrictions:
+          GeoRestriction:
+            RestrictionType: none
+
+      Tags:
+        - Key: Project
+          Value: aws-portfolio-03-serverless
+
+  # ----------------------------------------------------------
+  # S3バケットポリシー
+  # このバケット専用のCloudFrontディストリビューションからのみ
+  # s3:GetObject を許可する
+  # ----------------------------------------------------------
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BucketName
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${BucketArn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
+
+Outputs:
+  SiteUrl:
+    Description: フロントエンドの公開URL
+    Value: !Sub 'https://${DomainName}/'
+
+  CloudFrontDomainName:
+    Description: CloudFrontドメイン名 → route53.yaml の CloudFrontDomainName パラメータに使用
+    Value: !GetAtt CloudFrontDistribution.DomainName
+
+  CloudFrontDistributionId:
+    Description: CloudFront Distribution ID → iam-cicd.yaml のパラメータ、CI/CDのcreate-invalidationに使用
+    Value: !Ref CloudFrontDistribution
+
+  CloudFrontDistributionArn:
+    Description: CloudFront Distribution ARN → iam-cicd.yaml の CloudFrontDistributionArn パラメータに使用
+    Value: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'

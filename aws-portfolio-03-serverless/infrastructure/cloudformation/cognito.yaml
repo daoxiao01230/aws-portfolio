@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Portfolio 03 - Cognito User Pool + App Client'
+
+# 参照実装のみ・未デプロイ（dynamodb.yaml 冒頭のコメント参照）
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: aws-portfolio-03-serverless
+    Description: リソース名のプレフィックスとして使用
+
+Resources:
+
+  # ----------------------------------------------------------
+  # Cognito User Pool
+  # ユーザー登録・ログインを管理し、認証後にJWT（IDトークン）を発行する
+  # ----------------------------------------------------------
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub '${ProjectName}-users'
+
+      # サインイン方法: メールアドレスをユーザー名として使用
+      # 理由: ユーザー名を別途決めさせるより、メール一本化の方がシンプル
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          # 理由: 学習用ポートフォリオのため、記号必須までは要求しない
+
+      # -------------------------------------------------------
+      # 【設定しない項目】
+      # -------------------------------------------------------
+      # MfaConfiguration: 多要素認証は今回無効（デフォルト "OFF"）
+      #   理由: ポートフォリオ規模でMFAは過剰。
+      # LambdaConfig（トリガー）: 未設定
+      #   理由: サインアップ後処理のカスタマイズは現時点で不要。
+
+      UserPoolTags:
+        Project: !Ref ProjectName
+
+  # ----------------------------------------------------------
+  # Cognito User Pool Client
+  # React SPAがCognitoと通信するためのクライアント設定
+  # ----------------------------------------------------------
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub '${ProjectName}-spa-client'
+      UserPoolId: !Ref UserPool
+
+      # SPA（ブラウザ上で動くJS）なのでクライアントシークレットは発行しない
+      # 理由: シークレットはブラウザに埋め込むと漏洩するため、公開クライアントには使わない
+      GenerateSecret: false
+
+      # ユーザー名/パスワードによる直接認証フローを許可
+      # (amazon-cognito-identity-js の USER_SRP_AUTH で使用)
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+
+Outputs:
+  UserPoolId:
+    Description: Cognito User Pool ID → api-gateway.yaml の CognitoUserPoolId パラメータ、Reactアプリの環境変数に使用
+    Value: !Ref UserPool
+
+  UserPoolClientId:
+    Description: Cognito App Client ID → api-gateway.yaml の CognitoUserPoolClientId パラメータ、Reactアプリの環境変数に使用
+    Value: !Ref UserPoolClient
+
+  UserPoolArn:
+    Description: Cognito User Pool ARN → api-gateway.yaml の CognitoUserPoolArn パラメータに使用
+    Value: !GetAtt UserPool.Arn

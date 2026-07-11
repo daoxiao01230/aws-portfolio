@@ -1,0 +1,52 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Portfolio 03 - S3 bucket for frontend hosting'
+
+# 参照実装のみ・未デプロイ（dynamodb.yaml 冒頭のコメント参照）
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: >
+      S3バケット名（AWSグローバルで一意である必要がある）
+      例: portfolio-03-serverless-frontend-123456789012（アカウントID付与を推奨）
+
+Resources:
+
+  # ----------------------------------------------------------
+  # S3バケット
+  # Phase 1と同じ構成: プライベートバケット + CloudFront OAC経由のみ許可
+  # Phase 1のバケットは流用せず、Phase 3専用の別バケットにする
+  # （Phase 3を独立してデプロイ・破棄できるようにするため）
+  # ----------------------------------------------------------
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+      # -------------------------------------------------------
+      # 【設定しない項目】（Phase 1と同じ判断）
+      # -------------------------------------------------------
+      # WebsiteConfiguration: 使わない（CloudFrontをフロントに置くため不要）
+      # VersioningConfiguration: バージョニング無効（Gitで管理するため不要）
+
+      Tags:
+        - Key: Project
+          Value: aws-portfolio-03-serverless
+
+Outputs:
+  BucketName:
+    Description: S3バケット名 → cloudfront.yaml の BucketName パラメータに使用
+    Value: !Ref FrontendBucket
+
+  BucketArn:
+    Description: S3バケットARN → cloudfront.yaml の BucketArn パラメータに使用
+    Value: !GetAtt FrontendBucket.Arn
+
+  BucketRegionalDomainName:
+    Description: S3リージョナルドメイン → cloudfront.yaml の BucketRegionalDomainName パラメータに使用
+    Value: !GetAtt FrontendBucket.RegionalDomainName

@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Portfolio 03 - ACM Certificate for journal.daoxiao.org'
+
+# 参照実装のみ・未デプロイ（dynamodb.yaml 冒頭のコメント参照）
+#
+# 注意: このスタックは必ず us-east-1 でデプロイすること
+# 理由: CloudFront が使える ACM 証明書は us-east-1 のみ
+# デプロイコマンド:
+#   aws cloudformation deploy \
+#     --template-file acm.yaml \
+#     --stack-name portfolio-03-acm \
+#     --region us-east-1 \
+#     --parameter-overrides HostedZoneId=YOUR_HOSTED_ZONE_ID
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: journal.daoxiao.org
+    Description: カスタムドメイン名
+
+  HostedZoneId:
+    Type: String
+    Default: Z06510601ASWSVLJJY29P
+    Description: Route 53 の Hosted Zone ID（daoxiao.org、Phase 2と共通）
+
+Resources:
+
+  # ----------------------------------------------------------
+  # ACM 証明書
+  # DNS 検証方式: Route 53 に CNAME レコードを自動追加して検証
+  # ----------------------------------------------------------
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZoneId
+      Tags:
+        - Key: Project
+          Value: aws-portfolio-03-serverless
+
+Outputs:
+  CertificateArn:
+    Description: ACM 証明書 ARN → cloudfront.yaml の AcmCertificateArn パラメータに使用
+    Value: !Ref Certificate

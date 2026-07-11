@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Portfolio 03 - Scoped CI/CD policies on the existing GitHub Actions IAM user'
+
+# 参照実装のみ・未デプロイ（dynamodb.yaml 冒頭のコメント参照）
+#
+# Phase 1で作成済みの github-actions-portfolio-01 を新規作成せず流用する
+# （Phase毎にIAMユーザー・GitHub Secretsを増やさない方針）。
+# このテンプレートは「既存ユーザーにポリシーを追加する」だけで、
+# ユーザー自体は作成しない（Phase 1のiam.yamlとの違い）。
+
+Parameters:
+  ExistingIamUserName:
+    Type: String
+    Default: github-actions-portfolio-01
+    Description: Phase 1で作成済みのGitHub Actions用IAMユーザー名
+
+  CreateEntryFunctionArn:
+    Type: String
+  ListEntriesFunctionArn:
+    Type: String
+  UpdateEntryFunctionArn:
+    Type: String
+  DeleteEntryFunctionArn:
+    Type: String
+
+  FrontendBucketArn:
+    Type: String
+    Description: s3-frontend.yaml の Outputs > BucketArn の値
+
+  CloudFrontDistributionArn:
+    Type: String
+    Description: cloudfront.yaml の Outputs > CloudFrontDistributionArn の値
+
+Resources:
+
+  # ----------------------------------------------------------
+  # CI/CDが担うのは「Lambda関数コードの更新」のみに限定する
+  # （Cognito/API Gateway/DynamoDBなどのインフラ変更はローカルから
+  #   デプロイする方針。CI用IAMユーザーにIAMロール作成権限まで
+  #   持たせたくないため）
+  # ----------------------------------------------------------
+  LambdaDeployPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: portfolio-03-lambda-deploy-policy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: LambdaCodeDeploy
+            Effect: Allow
+            Action:
+              - lambda:UpdateFunctionCode
+            Resource:
+              - !Ref CreateEntryFunctionArn
+              - !Ref ListEntriesFunctionArn
+              - !Ref UpdateEntryFunctionArn
+              - !Ref DeleteEntryFunctionArn
+      Users:
+        - !Ref ExistingIamUserName
+
+  # ----------------------------------------------------------
+  # フロントエンド自動デプロイ用
+  # 既存バケットへの書き込みと既存ディストリビューションの
+  # Invalidationのみ許可（バケット/ディストリビューションの
+  # 作成権限は持たせない）
+  # ----------------------------------------------------------
+  FrontendDeployPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: portfolio-03-frontend-deploy-policy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: S3Deploy
+            Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:DeleteObject
+              - s3:GetObject
+              - s3:ListBucket
+            Resource:
+              - !Ref FrontendBucketArn
+              - !Sub '${FrontendBucketArn}/*'
+          - Sid: CloudFrontInvalidation
+            Effect: Allow
+            Action:
+              - cloudfront:CreateInvalidation
+            Resource:
+              - !Ref CloudFrontDistributionArn
+      Users:
+        - !Ref ExistingIamUserName

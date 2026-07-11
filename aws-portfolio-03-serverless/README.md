@@ -70,6 +70,58 @@ for the full file-by-file breakdown, all outputs, and gotchas hit while
 deploying this phase (IAM permissions, ACM region requirement, DynamoDB
 on-demand free tier).
 
+### CloudFormation (reference implementation, not deployed)
+
+Following Phase 1's precedent, this phase's infrastructure is also written
+as CloudFormation templates in
+[`infrastructure/cloudformation/`](./infrastructure/cloudformation/) — to
+demonstrate the same architecture in both tools. **These are not deployed**:
+the live infrastructure is Terraform-managed, and deploying these templates
+would create duplicate resources (a second Cognito pool, second Lambda
+functions, etc.) alongside the real ones. All 9 templates pass
+`aws cloudformation validate-template`. Deployment order (each step's
+Outputs feed the next step's `--parameter-overrides`):
+
+```
+dynamodb.yaml ─┐
+cognito.yaml ──┼─→ lambda.yaml ─→ api-gateway.yaml
+               │
+s3-frontend.yaml ─→ cloudfront.yaml ─→ route53.yaml
+acm.yaml (us-east-1) ──────────────↗
+                                     │
+              lambda.yaml + s3-frontend.yaml + cloudfront.yaml outputs
+                                     ↓
+                              iam-cicd.yaml (last)
+```
+
+```bash
+cd aws-portfolio-03-serverless/infrastructure/cloudformation
+
+aws cloudformation deploy --template-file dynamodb.yaml --stack-name portfolio-03-dynamodb
+aws cloudformation deploy --template-file cognito.yaml --stack-name portfolio-03-cognito
+aws cloudformation deploy --template-file lambda.yaml --stack-name portfolio-03-lambda \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides TableName=<from dynamodb> TableArn=<from dynamodb>
+aws cloudformation deploy --template-file api-gateway.yaml --stack-name portfolio-03-api \
+  --parameter-overrides CognitoUserPoolId=<...> CognitoUserPoolClientId=<...> \
+    CreateEntryFunctionArn=<...> CreateEntryFunctionName=<...> ... (4 functions)
+
+aws cloudformation deploy --template-file s3-frontend.yaml --stack-name portfolio-03-s3 \
+  --parameter-overrides BucketName=your-bucket-name
+aws cloudformation deploy --template-file acm.yaml --stack-name portfolio-03-acm \
+  --region us-east-1
+aws cloudformation deploy --template-file cloudfront.yaml --stack-name portfolio-03-cloudfront \
+  --parameter-overrides BucketName=<...> BucketArn=<...> BucketRegionalDomainName=<...> \
+    AcmCertificateArn=<from acm, us-east-1>
+aws cloudformation deploy --template-file route53.yaml --stack-name portfolio-03-route53 \
+  --parameter-overrides CloudFrontDomainName=<from cloudfront>
+
+aws cloudformation deploy --template-file iam-cicd.yaml --stack-name portfolio-03-iam-cicd \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides CreateEntryFunctionArn=<...> ... FrontendBucketArn=<...> \
+    CloudFrontDistributionArn=<...>
+```
+
 ## React frontend
 
 ```bash
@@ -130,6 +182,9 @@ aws-portfolio-03-serverless/
 │   ├── acm.tf                 # ACM certificate (us-east-1)
 │   ├── route53.tf             # A record (alias)
 │   └── outputs.tf
+├── infrastructure/cloudformation/ # same architecture — reference only, never deployed
+│   ├── dynamodb.yaml, cognito.yaml, lambda.yaml, api-gateway.yaml
+│   └── s3-frontend.yaml, acm.yaml, cloudfront.yaml, route53.yaml, iam-cicd.yaml
 ├── backend/lambda/
 │   ├── create_entry/handler.py
 │   ├── list_entries/handler.py
@@ -218,6 +273,58 @@ apply完了後、以下のoutputsをReactアプリの環境変数（`.env.local`
 （IAM権限・ACMのリージョン制約・DynamoDBオンデマンドの無料枠）は
 [`infrastructure/terraform/README.md`](./infrastructure/terraform/README.md)を参照。
 
+### CloudFormation（参照実装・未デプロイ）
+
+Phase 1の前例に倣い、このPhaseのインフラも
+[`infrastructure/cloudformation/`](./infrastructure/cloudformation/)に
+CloudFormationテンプレートとして用意している（両ツールで同じ構成を
+記述できることを示す目的）。**これらは実際にはデプロイしない**:
+本番で稼働しているインフラはTerraform管理であり、これらのテンプレートを
+デプロイすると同名の実リソース（2つ目のCognitoプール・2つ目のLambda関数等）
+が重複作成されてしまう。全9テンプレートは`aws cloudformation validate-template`
+での構文検証済み。デプロイ順序（各ステップのOutputsが次ステップの
+`--parameter-overrides`に必要）:
+
+```
+dynamodb.yaml ─┐
+cognito.yaml ──┼─→ lambda.yaml ─→ api-gateway.yaml
+               │
+s3-frontend.yaml ─→ cloudfront.yaml ─→ route53.yaml
+acm.yaml (us-east-1) ──────────────↗
+                                     │
+              lambda.yaml + s3-frontend.yaml + cloudfront.yaml のoutputs
+                                     ↓
+                              iam-cicd.yaml（最後）
+```
+
+```bash
+cd aws-portfolio-03-serverless/infrastructure/cloudformation
+
+aws cloudformation deploy --template-file dynamodb.yaml --stack-name portfolio-03-dynamodb
+aws cloudformation deploy --template-file cognito.yaml --stack-name portfolio-03-cognito
+aws cloudformation deploy --template-file lambda.yaml --stack-name portfolio-03-lambda \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides TableName=<dynamodbの出力> TableArn=<dynamodbの出力>
+aws cloudformation deploy --template-file api-gateway.yaml --stack-name portfolio-03-api \
+  --parameter-overrides CognitoUserPoolId=<...> CognitoUserPoolClientId=<...> \
+    CreateEntryFunctionArn=<...> CreateEntryFunctionName=<...> ...(4関数分)
+
+aws cloudformation deploy --template-file s3-frontend.yaml --stack-name portfolio-03-s3 \
+  --parameter-overrides BucketName=バケット名
+aws cloudformation deploy --template-file acm.yaml --stack-name portfolio-03-acm \
+  --region us-east-1
+aws cloudformation deploy --template-file cloudfront.yaml --stack-name portfolio-03-cloudfront \
+  --parameter-overrides BucketName=<...> BucketArn=<...> BucketRegionalDomainName=<...> \
+    AcmCertificateArn=<acmの出力・us-east-1>
+aws cloudformation deploy --template-file route53.yaml --stack-name portfolio-03-route53 \
+  --parameter-overrides CloudFrontDomainName=<cloudfrontの出力>
+
+aws cloudformation deploy --template-file iam-cicd.yaml --stack-name portfolio-03-iam-cicd \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides CreateEntryFunctionArn=<...> ... FrontendBucketArn=<...> \
+    CloudFrontDistributionArn=<...>
+```
+
 ## React フロントエンド
 
 ```bash
@@ -277,6 +384,9 @@ aws-portfolio-03-serverless/
 │   ├── acm.tf                 # ACM証明書（us-east-1）
 │   ├── route53.tf             # Aレコード(alias)
 │   └── outputs.tf
+├── infrastructure/cloudformation/ # 同じ構成 — 参照実装のみ・未デプロイ
+│   ├── dynamodb.yaml, cognito.yaml, lambda.yaml, api-gateway.yaml
+│   └── s3-frontend.yaml, acm.yaml, cloudfront.yaml, route53.yaml, iam-cicd.yaml
 ├── backend/lambda/
 │   ├── create_entry/handler.py
 │   ├── list_entries/handler.py

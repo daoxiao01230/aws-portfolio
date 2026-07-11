@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Portfolio 03 - DynamoDB entries table'
+
+# ============================================================
+# 参照実装のみ・未デプロイ
+# 実際に稼働しているPhase 3インフラはTerraform管理（../terraform/）。
+# このCFnテンプレート群はTerraformと同一の構成をCloudFormationでも
+# 記述できることを示すためのポートフォリオ用参照実装で、
+# デプロイすると同名の実リソースが重複作成されてしまうため実行しないこと。
+# （Phase 1のCFnテンプレートと同じ位置づけ。詳細はPhase 3 README参照）
+# ============================================================
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: aws-portfolio-03-serverless
+    Description: リソース名のプレフィックスとして使用
+
+Resources:
+
+  # ----------------------------------------------------------
+  # DynamoDB テーブル
+  # シングルテーブル設計: PK=userId（Cognitoのsub）, SK=entryId
+  # ユーザーごとのQueryで一覧取得できるため、Scanが不要になる
+  # ----------------------------------------------------------
+  EntriesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-entries'
+
+      # オンデマンド課金にする理由:
+      # アクセス量が読めないポートフォリオ用途では、
+      # キャパシティ事前予約(PROVISIONED)より従量課金が安全。
+      # 注意: オンデマンドモードにはリクエスト課金の無料枠が無い
+      # （常時無料なのはストレージ25GB分のみ）
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: entryId
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: entryId
+          KeyType: RANGE
+
+      # -------------------------------------------------------
+      # 【設定しない項目】
+      # -------------------------------------------------------
+      # PointInTimeRecoverySpecification: 無効（デフォルト）
+      #   理由: 学習用データのため、35日間ポイントインタイム復旧は過剰。
+      # SSESpecification: 明示しない
+      #   理由: DynamoDBはデフォルトで保存時暗号化(AWS所有キー)が有効。
+
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+Outputs:
+  TableName:
+    Description: DynamoDBテーブル名 → lambda.yaml の TableName パラメータに使用
+    Value: !Ref EntriesTable
+
+  TableArn:
+    Description: DynamoDBテーブルARN → lambda.yaml の TableArn パラメータに使用
+    Value: !GetAtt EntriesTable.Arn

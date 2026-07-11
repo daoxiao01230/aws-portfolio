@@ -1,0 +1,196 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Portfolio 03 - HTTP API + JWT Authorizer + routes'
+
+# 参照実装のみ・未デプロイ（dynamodb.yaml 冒頭のコメント参照）
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: aws-portfolio-03-serverless
+
+  AwsRegion:
+    Type: String
+    Default: ap-northeast-1
+
+  CognitoUserPoolId:
+    Type: String
+    Description: cognito.yaml の Outputs > UserPoolId の値
+
+  CognitoUserPoolClientId:
+    Type: String
+    Description: cognito.yaml の Outputs > UserPoolClientId の値
+
+  CreateEntryFunctionArn:
+    Type: String
+    Description: lambda.yaml の Outputs > CreateEntryFunctionArn の値
+  CreateEntryFunctionName:
+    Type: String
+    Description: lambda.yaml の Outputs > CreateEntryFunctionName の値
+
+  ListEntriesFunctionArn:
+    Type: String
+  ListEntriesFunctionName:
+    Type: String
+
+  UpdateEntryFunctionArn:
+    Type: String
+  UpdateEntryFunctionName:
+    Type: String
+
+  DeleteEntryFunctionArn:
+    Type: String
+  DeleteEntryFunctionName:
+    Type: String
+
+Resources:
+
+  # ----------------------------------------------------------
+  # API Gateway（HTTP API）
+  # REST APIより低コスト・低設定。JWT Authorizerを標準搭載しているため、
+  # Cognito User PoolのIDトークンをそのまま検証できる
+  # ----------------------------------------------------------
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${ProjectName}-api'
+      ProtocolType: HTTP
+      CorsConfiguration:
+        # 理由: ReactアプリからのブラウザFetchを許可する必要がある
+        AllowOrigins: ['*']
+        AllowMethods: [GET, POST, PUT, DELETE, OPTIONS]
+        AllowHeaders: [content-type, authorization]
+      Tags:
+        Project: !Ref ProjectName
+
+  # デフォルトステージ（$default）で自動デプロイ
+  DefaultStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: '$default'
+      AutoDeploy: true
+
+  # ----------------------------------------------------------
+  # JWT Authorizer
+  # Cognito User Poolが発行したIDトークンを検証する
+  # ----------------------------------------------------------
+  CognitoAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref HttpApi
+      Name: !Sub '${ProjectName}-cognito-authorizer'
+      AuthorizerType: JWT
+      IdentitySource:
+        - '$request.header.Authorization'
+      JwtConfiguration:
+        Audience:
+          - !Ref CognitoUserPoolClientId
+        Issuer: !Sub 'https://cognito-idp.${AwsRegion}.amazonaws.com/${CognitoUserPoolId}'
+
+  # ----------------------------------------------------------
+  # Lambda統合・ルート・呼び出し許可（4組）
+  # ----------------------------------------------------------
+  CreateEntryIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Ref CreateEntryFunctionArn
+      PayloadFormatVersion: '2.0'
+
+  CreateEntryRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'POST /entries'
+      Target: !Sub 'integrations/${CreateEntryIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref CognitoAuthorizer
+
+  CreateEntryPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref CreateEntryFunctionName
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AwsRegion}:${AWS::AccountId}:${HttpApi}/*/*'
+
+  ListEntriesIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Ref ListEntriesFunctionArn
+      PayloadFormatVersion: '2.0'
+
+  ListEntriesRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'GET /entries'
+      Target: !Sub 'integrations/${ListEntriesIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref CognitoAuthorizer
+
+  ListEntriesPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ListEntriesFunctionName
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AwsRegion}:${AWS::AccountId}:${HttpApi}/*/*'
+
+  UpdateEntryIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Ref UpdateEntryFunctionArn
+      PayloadFormatVersion: '2.0'
+
+  UpdateEntryRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'PUT /entries/{id}'
+      Target: !Sub 'integrations/${UpdateEntryIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref CognitoAuthorizer
+
+  UpdateEntryPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref UpdateEntryFunctionName
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AwsRegion}:${AWS::AccountId}:${HttpApi}/*/*'
+
+  DeleteEntryIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Ref DeleteEntryFunctionArn
+      PayloadFormatVersion: '2.0'
+
+  DeleteEntryRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'DELETE /entries/{id}'
+      Target: !Sub 'integrations/${DeleteEntryIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref CognitoAuthorizer
+
+  DeleteEntryPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref DeleteEntryFunctionName
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AwsRegion}:${AWS::AccountId}:${HttpApi}/*/*'
+
+Outputs:
+  ApiEndpoint:
+    Description: HTTP APIのベースURL → Reactアプリの環境変数 REACT_APP_API_ENDPOINT に使用
+    Value: !Sub 'https://${HttpApi}.execute-api.${AwsRegion}.amazonaws.com/'
