@@ -14,7 +14,8 @@ output "cognito_user_pool_client_id" {
 }
 
 output "dynamodb_table_name" {
-  value = aws_dynamodb_table.entries.name
+  description = "Lambda環境変数(TABLE_NAME)に自動注入済み。手動でのAWS CLI操作時の参照用"
+  value       = aws_dynamodb_table.entries.name
 }
 
 output "frontend_bucket_name" {
@@ -28,5 +29,6 @@ output "cloudfront_distribution_id" {
 }
 
 output "site_url" {
-  value = "https://${var.domain_name}/"
+  description = "フロントエンドの公開URL"
+  value       = "https://${var.domain_name}/"
 }

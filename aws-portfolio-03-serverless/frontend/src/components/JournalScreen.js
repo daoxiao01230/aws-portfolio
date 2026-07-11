@@ -3,6 +3,9 @@ import { listEntries, createEntry, updateEntry, deleteEntry } from '../api/entri
 import { signOut } from '../auth/cognito';
 import GratitudeTree from './GratitudeTree';
 
+// このファイルのstreak/dayNumberロジックとentryTypeフィルタリング設計の背景は
+// ../../docs/Frontend-Design.md を参照
+
 // Phase 1 (aws-portfolio-01-static-site/react/src/App.js) と同じ辞書構造・キー名
 const translations = {
   ja: {

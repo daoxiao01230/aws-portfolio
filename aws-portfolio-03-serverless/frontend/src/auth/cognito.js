@@ -35,6 +35,9 @@ export function signIn(email, password) {
     Username: email,
     Password: password,
   });
+  // authenticateUser は内部でUSER_SRP_AUTHフローを使う。
+  // 生のパスワードはネットワークに送信されず、Secure Remote Password方式で
+  // 検証される（Cognito側のexplicit_auth_flowsでALLOW_USER_SRP_AUTHを許可済み）
   return new Promise((resolve, reject) => {
     user.authenticateUser(authDetails, {
       onSuccess: (session) => resolve(session),
