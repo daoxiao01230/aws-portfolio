@@ -26,10 +26,10 @@ export function listEntries() {
   return request('/entries');
 }
 
-export function createEntry(content) {
+export function createEntry(content, entryType = 'gratitude') {
   return request('/entries', {
     method: 'POST',
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content, entryType }),
   });
 }
 

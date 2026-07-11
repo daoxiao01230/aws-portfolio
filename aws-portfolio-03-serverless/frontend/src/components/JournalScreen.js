@@ -11,7 +11,12 @@ const translations = {
     save: "保存する", saved: "保存しました ✓", streak: "連続日数",
     noEntries: "まだ記録がありません。今日から始めましょう！", today: "今日",
     langNext: "EN", formatDate: (d) => `${d.getMonth() + 1}月${d.getDate()}日`,
-    last7: "直近7日間", writeTab: "✍️ 今日", historyTab: "📖 履歴",
+    last7: "直近7日間", writeTab: "✍️ 今日", historyTab: "📖 履歴", reflectTab: "🌿 気づき",
+    reflectTitle: "私の成長の気づき", reflectSubtitle: "日記を書いて気づいた心の変化を記録",
+    reflectPlaceholder: "今、どんな気づきがありますか？変化を書いてみましょう...",
+    reflectSave: "気づきを保存", reflectSaved: "保存しました ✓",
+    reflectEmpty: "まだ気づきがありません。いつでも記録できます",
+    dayLabel: (n) => `${n}日目`,
     signOut: "ログアウト", edit: "編集", delete: "削除", cancel: "キャンセル",
     loading: "読み込み中…",
   },
@@ -21,7 +26,12 @@ const translations = {
     save: "Save", saved: "Saved ✓", streak: "Day Streak",
     noEntries: "No entries yet — start today!", today: "Today",
     langNext: "中文", formatDate: (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    last7: "Last 7 days", writeTab: "✍️ Today", historyTab: "📖 History",
+    last7: "Last 7 days", writeTab: "✍️ Today", historyTab: "📖 History", reflectTab: "🌿 Growth",
+    reflectTitle: "My Growth Journal", reflectSubtitle: "Record how journaling is changing you",
+    reflectPlaceholder: "What shift have you noticed? Write your reflection...",
+    reflectSave: "Save Reflection", reflectSaved: "Saved ✓",
+    reflectEmpty: "No reflections yet — write one whenever you feel a change",
+    dayLabel: (n) => `Day ${n}`,
     signOut: "Sign Out", edit: "Edit", delete: "Delete", cancel: "Cancel",
     loading: "Loading…",
   },
@@ -31,7 +41,12 @@ const translations = {
     save: "保存", saved: "已保存 ✓", streak: "连续天数",
     noEntries: "还没有记录，今天开始吧！", today: "今天",
     langNext: "日本語", formatDate: (d) => `${d.getMonth() + 1}月${d.getDate()}日`,
-    last7: "近7天", writeTab: "✍️ 今日", historyTab: "📖 历史",
+    last7: "近7天", writeTab: "✍️ 今日", historyTab: "📖 历史", reflectTab: "🌿 感悟",
+    reflectTitle: "我的成长感悟", reflectSubtitle: "记录写日记后内心的变化",
+    reflectPlaceholder: "此刻有什么感悟？写下你注意到的变化...",
+    reflectSave: "保存感悟", reflectSaved: "已保存 ✓",
+    reflectEmpty: "还没有感悟，随时记录你的变化吧",
+    dayLabel: (n) => `第 ${n} 天`,
     signOut: "退出登录", edit: "编辑", delete: "删除", cancel: "取消",
     loading: "加载中…",
   },
@@ -45,10 +60,15 @@ function getDateKey(iso) {
   return new Date(iso).toISOString().split("T")[0];
 }
 
+// 旧entryType未設定のデータ(なし)は"gratitude"として扱う後方互換
+function isReflection(entry) {
+  return entry.entryType === "reflection";
+}
+
 // Phase 1は「日付キー→1エントリ」だったが、Phase 3は1日に複数エントリを許す設計。
-// streakは「その日に1件以上のエントリがあるか」で判定し、考え方をPhase 1に揃える
-function calculateStreak(entries) {
-  const daysWithEntry = new Set(entries.map((e) => getDateKey(e.createdAt)));
+// streakは「その日に感謝エントリが1件以上あるか」で判定し、考え方をPhase 1に揃える
+function calculateStreak(gratitudeEntries) {
+  const daysWithEntry = new Set(gratitudeEntries.map((e) => getDateKey(e.createdAt)));
   let streak = 0;
   let d = new Date();
   for (;;) {
@@ -61,12 +81,22 @@ function calculateStreak(entries) {
   return streak;
 }
 
+// firstDateKey(日記全体の初日)を基準に、atIso時点が何日目かを計算する
+function dayNumber(atIso, firstDateKey) {
+  if (!firstDateKey) return 1;
+  const start = new Date(firstDateKey + "T00:00:00");
+  const at = new Date(atIso);
+  return Math.floor((at - start) / (1000 * 60 * 60 * 24)) + 1;
+}
+
 export default function JournalScreen({ onSignOut }) {
   const [langIdx, setLangIdx] = useState(0);
   const [entries, setEntries] = useState([]);
   const [activeTab, setActiveTab] = useState("write");
   const [newText, setNewText] = useState("");
   const [justSaved, setJustSaved] = useState(false);
+  const [reflectText, setReflectText] = useState("");
+  const [reflectSaved, setReflectSaved] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -97,16 +127,36 @@ export default function JournalScreen({ onSignOut }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回マウント時のみ実行したい
   useEffect(() => { load(); }, []);
 
-  const streak = calculateStreak(entries);
+  const gratitudeEntries = entries.filter((e) => !isReflection(e));
+  const reflectionEntries = entries.filter(isReflection);
+  const streak = calculateStreak(gratitudeEntries);
+  // entriesはentryId(先頭がISO時刻)の降順で返るため、末尾が種別を問わず最古のエントリになる。
+  // 気づきが感謝より先に書かれた場合でも「-1日目」のような負の日数にならないようにする
+  const firstDate = entries.length > 0
+    ? getDateKey(entries[entries.length - 1].createdAt)
+    : null;
 
   const handleCreate = async () => {
     if (!newText.trim()) return;
     try {
-      const entry = await createEntry(newText.trim());
+      const entry = await createEntry(newText.trim(), "gratitude");
       setEntries([entry, ...entries]);
       setNewText("");
       setJustSaved(true);
       setTimeout(() => setJustSaved(false), 1500);
+    } catch (err) {
+      setError(err.message || String(err));
+    }
+  };
+
+  const handleSaveReflection = async () => {
+    if (!reflectText.trim()) return;
+    try {
+      const entry = await createEntry(reflectText.trim(), "reflection");
+      setEntries([entry, ...entries]);
+      setReflectText("");
+      setReflectSaved(true);
+      setTimeout(() => setReflectSaved(false), 1500);
     } catch (err) {
       setError(err.message || String(err));
     }
@@ -138,7 +188,7 @@ export default function JournalScreen({ onSignOut }) {
 
   const cycleLang = () => setLangIdx((langIdx + 1) % LANG_CYCLE.length);
 
-  const TABS = ["write", "history"];
+  const TABS = ["write", "history", "reflect"];
 
   return (
     <div style={{
@@ -150,15 +200,13 @@ export default function JournalScreen({ onSignOut }) {
     }}>
       <div style={{ width: "100%", maxWidth: 430, display: "flex", flexDirection: "column" }}>
 
-        {/* Header */}
-        <div style={{ ...CARD, padding: "28px 16px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: "#5a3e6b", letterSpacing: "0.06em", lineHeight: 1.2 }}>
-              {t.appName}
-            </h1>
-            <p style={{ margin: "4px 0 0", fontSize: 13, color: "#9b85b0", fontStyle: "italic" }}>{t.subtitle}</p>
-          </div>
-          <div style={{ display: "flex", gap: 8, flexShrink: 0, marginLeft: 12 }}>
+        {/* Header — タイトル行とボタン行を分けて、subtitleが折り返さない幅を確保する */}
+        <div style={{ ...CARD, padding: "28px 16px 0" }}>
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: "#5a3e6b", letterSpacing: "0.06em", lineHeight: 1.2 }}>
+            {t.appName}
+          </h1>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: "#9b85b0", fontStyle: "italic" }}>{t.subtitle}</p>
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
             <button onClick={cycleLang} style={{
               background: "rgba(255,255,255,0.7)", border: "1.5px solid #d4c5e6",
               borderRadius: 20, padding: "5px 14px", fontSize: 13, color: "#7a5fa0",
@@ -188,7 +236,7 @@ export default function JournalScreen({ onSignOut }) {
                   const d = new Date();
                   d.setDate(d.getDate() - (6 - i));
                   const key = d.toISOString().split("T")[0];
-                  const has = entries.some((e) => getDateKey(e.createdAt) === key);
+                  const has = gratitudeEntries.some((e) => getDateKey(e.createdAt) === key);
                   return (
                     <div key={i} style={{
                       width: 24, height: 24, borderRadius: 6, flexShrink: 0,
@@ -215,7 +263,7 @@ export default function JournalScreen({ onSignOut }) {
               fontSize: 13, fontFamily: "inherit", cursor: "pointer",
               fontWeight: activeTab === tab ? 600 : 400, transition: "all 0.2s",
             }}>
-              {tab === "write" ? t.writeTab : t.historyTab}
+              {tab === "write" ? t.writeTab : tab === "history" ? t.historyTab : t.reflectTab}
             </button>
           ))}
         </div>
@@ -263,12 +311,12 @@ export default function JournalScreen({ onSignOut }) {
                 {t.loading}
               </div>
             )}
-            {!loading && entries.length === 0 && (
+            {!loading && gratitudeEntries.length === 0 && (
               <div style={{ textAlign: "center", color: "#c0acd4", padding: "40px 0", fontSize: 15 }}>
                 {t.noEntries}
               </div>
             )}
-            {entries.map((entry) => (
+            {gratitudeEntries.map((entry) => (
               <div key={entry.entryId} style={{
                 background: "rgba(255,255,255,0.6)", borderRadius: 16,
                 border: "1px solid rgba(255,255,255,0.9)", padding: "14px 18px", marginBottom: 10,
@@ -309,6 +357,117 @@ export default function JournalScreen({ onSignOut }) {
                     {entry.content}
                   </div>
                 )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Reflect Tab */}
+        {activeTab === "reflect" && (
+          <div style={{ ...CARD, marginTop: 12 }}>
+            <div style={{ marginBottom: 14, paddingLeft: 4 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#5a3e6b" }}>{t.reflectTitle}</div>
+              <div style={{ fontSize: 12, color: "#b0a0c8", marginTop: 3 }}>{t.reflectSubtitle}</div>
+            </div>
+            <div style={{
+              background: "rgba(255,255,255,0.75)", borderRadius: 20,
+              border: "1px solid rgba(255,255,255,0.9)", boxShadow: "0 2px 16px rgba(90,62,107,0.06)",
+              padding: "16px 20px", marginBottom: 16,
+            }}>
+              {firstDate && (
+                <div style={{
+                  display: "inline-block", fontSize: 11, color: "#a07ac4",
+                  background: "rgba(160,122,196,0.12)", borderRadius: 10,
+                  padding: "2px 10px", marginBottom: 10,
+                }}>
+                  {t.dayLabel(dayNumber(new Date().toISOString(), firstDate))}
+                </div>
+              )}
+              <textarea
+                value={reflectText}
+                onChange={(e) => setReflectText(e.target.value)}
+                placeholder={t.reflectPlaceholder}
+                style={{
+                  width: "100%", minHeight: 120, border: "none", outline: "none",
+                  background: "transparent", resize: "none", fontSize: 15,
+                  color: "#3d2b52", lineHeight: 1.8, fontFamily: "inherit", boxSizing: "border-box",
+                }} />
+              <button onClick={handleSaveReflection} disabled={!reflectText.trim()} style={{
+                width: "100%", marginTop: 10, padding: "12px", borderRadius: 12, border: "none",
+                background: reflectSaved ? "linear-gradient(135deg, #7bc47b, #5aad5a)"
+                  : reflectText.trim() ? "linear-gradient(135deg, #a07ac4, #7a5fa0)" : "rgba(180,160,200,0.3)",
+                color: reflectText.trim() ? "#fff" : "#c0acd4",
+                fontSize: 14, fontWeight: 600,
+                cursor: !reflectText.trim() ? "default" : "pointer",
+                fontFamily: "inherit", transition: "all 0.2s",
+              }}>{reflectSaved ? t.reflectSaved : t.reflectSave}</button>
+            </div>
+            {reflectionEntries.length === 0 && (
+              <div style={{ textAlign: "center", color: "#c0acd4", padding: "30px 0", fontSize: 14 }}>
+                {t.reflectEmpty}
+              </div>
+            )}
+            {reflectionEntries.map((entry, idx) => (
+              <div key={entry.entryId} style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+                  <div style={{
+                    width: 12, height: 12, borderRadius: "50%", marginTop: 4,
+                    background: idx === 0 ? "#7a5fa0" : "#c8b8e0",
+                    boxShadow: idx === 0 ? "0 0 0 3px rgba(122,95,160,0.2)" : "none",
+                  }} />
+                  {idx < reflectionEntries.length - 1 && (
+                    <div style={{ width: 2, flex: 1, background: "rgba(180,160,200,0.25)", marginTop: 4 }} />
+                  )}
+                </div>
+                <div style={{
+                  flex: 1, background: "rgba(255,255,255,0.65)", borderRadius: 16,
+                  border: "1px solid rgba(255,255,255,0.9)", padding: "12px 16px",
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <span style={{
+                        fontSize: 11, color: "#a07ac4",
+                        background: "rgba(160,122,196,0.12)", borderRadius: 10, padding: "2px 10px",
+                      }}>{t.dayLabel(dayNumber(entry.createdAt, firstDate))}</span>
+                      <span style={{ fontSize: 11, color: "#c0acd4" }}>
+                        {t.formatDate(new Date(entry.createdAt))}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => { setEditingId(entry.entryId); setEditText(entry.content); }} style={{
+                        background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#b0a0c8", padding: 0,
+                      }}>✏️</button>
+                      <button onClick={() => handleDelete(entry.entryId)} style={{
+                        background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#d4a0a0", padding: 0,
+                      }}>🗑️</button>
+                    </div>
+                  </div>
+                  {editingId === entry.entryId ? (
+                    <div>
+                      <textarea value={editText} onChange={(e) => setEditText(e.target.value)} style={{
+                        width: "100%", minHeight: 80, border: "1px solid #d4c5e6", borderRadius: 8,
+                        padding: "8px", fontSize: 14, color: "#3d2b52", lineHeight: 1.7,
+                        fontFamily: "inherit", resize: "none", boxSizing: "border-box", outline: "none",
+                      }} />
+                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                        <button onClick={() => handleUpdate(entry.entryId)} style={{
+                          flex: 1, padding: "8px", borderRadius: 8, border: "none",
+                          background: "#7a5fa0", color: "#fff", fontSize: 13,
+                          fontFamily: "inherit", cursor: "pointer",
+                        }}>✓</button>
+                        <button onClick={() => setEditingId(null)} style={{
+                          flex: 1, padding: "8px", borderRadius: 8, border: "1px solid #d4c5e6",
+                          background: "transparent", color: "#9b85b0", fontSize: 13,
+                          fontFamily: "inherit", cursor: "pointer",
+                        }}>{t.cancel}</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 14, color: "#3d2b52", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+                      {entry.content}
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>

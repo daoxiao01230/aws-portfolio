@@ -17,6 +17,8 @@ def lambda_handler(event, context):
     user_id = event["requestContext"]["authorizer"]["jwt"]["claims"]["sub"]
     body = json.loads(event.get("body") or "{}")
     content = body.get("content", "").strip()
+    # entryType: "gratitude"(今日の感謝) と "reflection"(気づき) を1つのテーブルで区別する
+    entry_type = body.get("entryType", "gratitude")
 
     if not content:
         return {
@@ -30,6 +32,7 @@ def lambda_handler(event, context):
         # entryId: 作成時刻を先頭に置くことで、Query結果が自然に時系列順になる
         "entryId": f"{now}#{uuid.uuid4()}",
         "content": content,
+        "entryType": entry_type,
         "createdAt": now,
         "updatedAt": now,
     }
