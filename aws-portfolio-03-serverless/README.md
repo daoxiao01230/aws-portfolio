@@ -41,10 +41,12 @@ API, etc.) — this section is just the summary.
   user's data (structural IDOR protection, not a runtime check).
 - **Existing IAM user reused (`github-actions-portfolio-01`), no new one
   created**: keeps GitHub Secrets from multiplying with every phase.
-- **CI/CD scope is Lambda code only**: infra changes (Cognito/API
-  Gateway/DynamoDB/IAM/S3/CloudFront/Route53/ACM) are deployed manually via
+- **CI/CD scope is application code only** (Lambda code + frontend build):
+  infra changes (Cognito/API Gateway/DynamoDB/IAM/creating S3 buckets or
+  CloudFront distributions/Route53/ACM) are deployed manually via
   `terraform apply`, same as Phase 2 — the CI IAM user intentionally can't
-  create IAM roles, Cognito pools, or CloudFront distributions.
+  *create* IAM roles, Cognito pools, or CloudFront distributions (only write
+  to the existing bucket and invalidate the existing distribution).
 - **S3+CloudFront are Phase 3's own bucket/distribution**, independent of
   Phase 1's — so `terraform destroy` in this phase can never touch Phase 1/2.
 
@@ -77,7 +79,13 @@ cp .env.example .env.local   # fill in with the terraform outputs above
 npm start                    # local check
 ```
 
-Production deploy (manual, same command shape as Phase 1):
+Production deploy is automated via `.github/workflows/deploy-03-frontend.yml`
+on every push to `frontend/**` — see that file's header comment for the
+one-time GitHub repo Variables setup (`PHASE3_API_ENDPOINT`,
+`PHASE3_COGNITO_USER_POOL_ID`, `PHASE3_COGNITO_CLIENT_ID`,
+`PHASE3_S3_BUCKET_NAME`, `PHASE3_CLOUDFRONT_DIST_ID`; reuses Phase 1's
+`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` secrets). Manual deploy still works
+the same way Phase 1 does:
 ```bash
 npm run build
 aws s3 sync build/ s3://<frontend_bucket_name> --delete
@@ -98,8 +106,9 @@ aws cloudfront create-invalidation --distribution-id <cloudfront_distribution_id
 
 ## Remaining work
 
-- [ ] Automated frontend deployment via GitHub Actions (currently manual
-      `aws s3 sync` only).
+- [ ] One-time: set the GitHub repo Variables listed in
+      `.github/workflows/deploy-03-frontend.yml`'s header comment before the
+      workflow's first run.
 
 ## Folder structure
 
@@ -181,11 +190,13 @@ HTTP APIを選んだ理由など）は[`docs/Architecture.md`](./docs/Architectu
   コード経路自体が存在しない（実行時チェックではなく構造的なIDOR対策）。
 - **既存IAMユーザー(github-actions-portfolio-01)を再利用**: 新規作成せず、
   Phase毎にGitHub Secretsが増殖しないようにする。
-- **CI/CDのスコープはLambdaコード更新のみ**: インフラ変更（Cognito/API
-  Gateway/DynamoDB/IAM/S3/CloudFront/Route53/ACM）はPhase 2と同様、
-  ローカルから`terraform apply`で手動デプロイする。CI用IAMユーザーには
-  意図的にIAMロール・Cognitoプール・CloudFrontディストリビューションの
-  作成権限を持たせていない。
+- **CI/CDのスコープはアプリケーションコードの更新のみ**（Lambdaコード・
+  フロントエンドビルドの両方）: インフラ変更（Cognito/API Gateway/
+  DynamoDB/IAM/S3バケット作成/CloudFront作成/Route53/ACM）はPhase 2と
+  同様、ローカルから`terraform apply`で手動デプロイする。CI用IAMユーザーには
+  意図的にIAMロール・Cognitoプール・CloudFrontディストリビューション
+  「作成」の権限を持たせていない（既存バケットへの書き込みと既存
+  ディストリビューションのInvalidationのみ許可）。
 - **S3+CloudFrontはPhase 3専用のバケット・ディストリビューション**:
   Phase 1とは完全に独立しており、このPhaseの`terraform destroy`が
   Phase 1・Phase 2に影響することはない。
@@ -217,7 +228,13 @@ cp .env.example .env.local   # 上記のterraform outputsの値を書き込む
 npm start                    # ローカル確認
 ```
 
-本番デプロイ（手動・Phase 1と同じコマンド体系）:
+本番デプロイは`.github/workflows/deploy-03-frontend.yml`により`frontend/**`への
+push時に自動実行される。初回のみGitHub repo Variablesの設定が必要
+（`PHASE3_API_ENDPOINT`・`PHASE3_COGNITO_USER_POOL_ID`・`PHASE3_COGNITO_CLIENT_ID`・
+`PHASE3_S3_BUCKET_NAME`・`PHASE3_CLOUDFRONT_DIST_ID`。詳細はワークフローファイル
+冒頭のコメント参照。AWS認証情報はPhase 1の`AWS_ACCESS_KEY_ID`/
+`AWS_SECRET_ACCESS_KEY`シークレットを流用）。手動デプロイもPhase 1と同じ
+コマンド体系で可能:
 ```bash
 npm run build
 aws s3 sync build/ s3://<frontend_bucket_name> --delete
@@ -237,8 +254,8 @@ aws cloudfront create-invalidation --distribution-id <cloudfront_distribution_id
 
 ## 残タスク
 
-- [ ] GitHub Actionsでのフロントエンド自動デプロイ（現状は手動
-      `aws s3 sync`のみ）
+- [ ] 初回のみ: `.github/workflows/deploy-03-frontend.yml`冒頭コメント記載の
+      GitHub repo Variablesを設定してから、ワークフローを初回実行する
 
 ## フォルダ構成
 

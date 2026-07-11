@@ -13,7 +13,7 @@ frontend hosting (S3 + CloudFront + ACM + Route 53) for `journal.daoxiao.org`.
 | `dynamodb.tf` | `entries` table, on-demand billing, PK=`userId` / SK=`entryId` |
 | `lambda.tf` | Execution IAM role + policy, 4 Lambda functions (Python 3.12), code zipped via the `archive` provider |
 | `api_gateway.tf` | HTTP API, JWT Authorizer (Cognito-backed), 4 routes/integrations, Lambda invoke permissions |
-| `iam.tf` | Adds a scoped inline policy (Lambda code deploy only) to the existing `github-actions-portfolio-01` user |
+| `iam.tf` | Adds two scoped inline policies to the existing `github-actions-portfolio-01` user: Lambda code deploy, and frontend S3 sync + CloudFront invalidation |
 | `s3_frontend.tf` | Private S3 bucket for the React build (own bucket, independent of Phase 1) |
 | `cloudfront.tf` | OAC + CloudFront distribution serving `journal.daoxiao.org` |
 | `acm.tf` | ACM certificate (us-east-1) + DNS validation |
@@ -110,7 +110,7 @@ are all scoped to this phase only; destroying this state has no effect on Phase 
 | `dynamodb.tf` | `entries`テーブル、オンデマンド課金、PK=`userId` / SK=`entryId` |
 | `lambda.tf` | 実行用IAMロール + ポリシー、Lambda関数4本（Python 3.12）、`archive`プロバイダでコードをzip化 |
 | `api_gateway.tf` | HTTP API、JWT Authorizer（Cognito連携）、ルート/統合4本、Lambda呼び出し許可 |
-| `iam.tf` | 既存の`github-actions-portfolio-01`ユーザーに、Lambdaコードデプロイのみに限定したインラインポリシーを追加 |
+| `iam.tf` | 既存の`github-actions-portfolio-01`ユーザーに、Lambdaコードデプロイ用とフロントエンドS3同期+CloudFront無効化用の2つの限定インラインポリシーを追加 |
 | `s3_frontend.tf` | Reactビルド用のプライベートS3バケット（Phase 1とは独立した専用バケット） |
 | `cloudfront.tf` | OAC + `journal.daoxiao.org`を配信するCloudFrontディストリビューション |
 | `acm.tf` | ACM証明書（us-east-1）+ DNS検証 |
