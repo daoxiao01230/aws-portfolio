@@ -15,11 +15,11 @@ on:
   push:
     branches: [main]
     paths:
-      - 'aws-portfolio-03-serverless/src/lambda/**'
+      - 'aws-portfolio-03-serverless/backend/lambda/**'
   pull_request:
     branches: [main]
     paths:
-      - 'aws-portfolio-03-serverless/src/lambda/**'
+      - 'aws-portfolio-03-serverless/backend/lambda/**'
   workflow_dispatch:
 
 defaults:
@@ -38,7 +38,7 @@ jobs:
       - name: Zip Lambda functions
         run: |
           for fn in create_entry list_entries update_entry delete_entry; do
-            cd "src/lambda/$fn"
+            cd "backend/lambda/$fn"
             zip -r "../../../$fn.zip" .
             cd -
           done

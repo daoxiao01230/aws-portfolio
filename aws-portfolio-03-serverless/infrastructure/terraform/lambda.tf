@@ -58,25 +58,25 @@ resource "aws_iam_role_policy" "lambda_dynamodb" {
 # ============================================================
 data "archive_file" "create_entry" {
   type        = "zip"
-  source_dir  = "${path.module}/../../src/lambda/create_entry"
+  source_dir  = "${path.module}/../../backend/lambda/create_entry"
   output_path = "${path.module}/build/create_entry.zip"
 }
 
 data "archive_file" "list_entries" {
   type        = "zip"
-  source_dir  = "${path.module}/../../src/lambda/list_entries"
+  source_dir  = "${path.module}/../../backend/lambda/list_entries"
   output_path = "${path.module}/build/list_entries.zip"
 }
 
 data "archive_file" "update_entry" {
   type        = "zip"
-  source_dir  = "${path.module}/../../src/lambda/update_entry"
+  source_dir  = "${path.module}/../../backend/lambda/update_entry"
   output_path = "${path.module}/build/update_entry.zip"
 }
 
 data "archive_file" "delete_entry" {
   type        = "zip"
-  source_dir  = "${path.module}/../../src/lambda/delete_entry"
+  source_dir  = "${path.module}/../../backend/lambda/delete_entry"
   output_path = "${path.module}/build/delete_entry.zip"
 }
 
