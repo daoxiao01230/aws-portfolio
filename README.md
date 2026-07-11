@@ -41,7 +41,8 @@ aws-portfolio/
 │   └── docs/troubleshooting.md    # DNS clientHold investigation (RDAP-based diagnosis)
 ├── aws-portfolio-03-serverless/    # Phase 03 — 🚧 in progress
 │   ├── infrastructure/terraform/  # Cognito, DynamoDB, Lambda, API Gateway (HTTP API + JWT authorizer)
-│   └── src/lambda/                # Python 3.12 handlers (create/list/update/delete entry)
+│   ├── src/lambda/                # Python 3.12 handlers (create/list/update/delete entry)
+│   └── react/                     # Login/signup + CRUD UI (Cognito + fetch, build verified)
 └── .github/workflows/
     ├── deploy-01-static-site.yml   # triggers on Phase 01 changes only
     ├── deploy-02-custom-domain.yml # triggers on Phase 02 changes only
@@ -101,7 +102,8 @@ aws-portfolio/
 │   └── docs/troubleshooting.md    # DNS clientHold調査記録（RDAPによる診断）
 ├── aws-portfolio-03-serverless/    # Phase 03 — 🚧 進行中
 │   ├── infrastructure/terraform/  # Cognito, DynamoDB, Lambda, API Gateway (HTTP API + JWT authorizer)
-│   └── src/lambda/                # Python 3.12 ハンドラー（日記のCRUD）
+│   ├── src/lambda/                # Python 3.12 ハンドラー（日記のCRUD）
+│   └── react/                     # ログイン/サインアップ + CRUD UI（Cognito + fetch、ビルド確認済み）
 └── .github/workflows/
     ├── deploy-01-static-site.yml   # Phase 01 の変更時のみ発火
     ├── deploy-02-custom-domain.yml # Phase 02 の変更時のみ発火
