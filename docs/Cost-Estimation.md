@@ -50,11 +50,33 @@ All estimates assume **low-traffic portfolio usage** (~1,000 visits/month).
 
 ---
 
-## Phase 03–06 — Cost Preview (Planned)
+## Phase 03 — Serverless Application (Deployed 2026-07-11)
+
+### Additional Services
+
+| Service | Usage (actual portfolio scale) | Free Tier | Estimated Monthly Cost |
+|---------|-------|-----------|----------------------|
+| Cognito User Pool (Essentials tier) | 1 test user | 10,000 MAU/month, always free | **$0.00** |
+| API Gateway (HTTP API) | ~100 requests/month | 1M requests / 12 months, then $1.00/million | **$0.00** |
+| Lambda (4 functions) | ~400 invocations/month | 1M requests + 400,000 GB-seconds, always free | **$0.00** |
+| DynamoDB (on-demand) storage | <1 MB | 25 GB, always free | **$0.00** |
+| DynamoDB (on-demand) requests | ~500 reads + 200 writes/month | None for on-demand mode ($0.25/M read, $1.25/M write, US baseline; Tokyo slightly higher) | **$0.00** (well under $0.01) |
+
+### Phase 03 Total (incremental)
+
+| Scenario | Monthly | Annual |
+|----------|---------|--------|
+| Current portfolio-scale usage | **~$0.00** | **~$0.00** |
+| After API Gateway free tier expires (12 months) | **~$0.01** | **~$0.12** |
+
+> Unlike Phase 01/02, DynamoDB on-demand mode has **no free tier for request costs** (only the 25 GB storage allowance is free) — but at portfolio-demo traffic levels the per-request cost rounds to zero. If this app ever gets real user traffic, DynamoDB request cost is the line item to watch first (API Gateway and Lambda free tiers are far larger).
+
+---
+
+## Phase 04–06 — Cost Preview (Planned)
 
 | Phase | Key Services Added | Estimated Monthly Cost |
 |-------|-------------------|----------------------|
-| 03 Serverless | API Gateway, Lambda, DynamoDB, Cognito | ~$0.00–$2.00 |
 | 04 Observability | CloudWatch Logs, X-Ray, SNS | ~$0.00–$1.00 |
 | 05 Containers | ECS Fargate, ALB, RDS | ~$30–$80 |
 | 06 DevOps | CodePipeline, CodeBuild | ~$1.00–$5.00 |
@@ -75,8 +97,11 @@ All estimates assume **low-traffic portfolio usage** (~1,000 visits/month).
 | CloudFront Invalidations | 1,000 paths / month | Always free |
 | ACM Public Certificate | Unlimited | Always free |
 | Lambda Invocations | 1,000,000 / month | Always free |
+| Lambda Compute | 400,000 GB-seconds / month | Always free |
 | DynamoDB Storage | 25 GB | Always free |
-| DynamoDB Read/Write | 25 WCU / 25 RCU | Always free |
+| DynamoDB Read/Write (Provisioned mode only) | 25 WCU / 25 RCU | Always free — **does not apply to our on-demand table** |
+| Cognito User Pool MAU | 10,000 / month (Essentials tier) | Always free |
+| API Gateway HTTP API Requests | 1,000,000 / month | First 12 months only |
 
 ---
 
@@ -143,11 +168,33 @@ All estimates assume **low-traffic portfolio usage** (~1,000 visits/month).
 
 ---
 
-## Phase 03–06 — コスト概算（予定）
+## Phase 03 — サーバーレスアプリ（2026-07-11 実機デプロイ済み）
+
+### 追加サービス
+
+| サービス | 使用量（ポートフォリオ規模の実測） | 無料枠 | 月額試算 |
+|---------|--------|--------|---------|
+| Cognito User Pool（Essentialsティア） | テストユーザー1名 | 10,000 MAU/月・常時無料 | **$0.00** |
+| API Gateway（HTTP API） | 約100リクエスト/月 | 100万リクエスト/12ヶ月、以降$1.00/100万 | **$0.00** |
+| Lambda（4関数） | 約400回呼び出し/月 | 100万リクエスト＋400,000 GB秒・常時無料 | **$0.00** |
+| DynamoDB（オンデマンド）ストレージ | 1MB未満 | 25GB・常時無料 | **$0.00** |
+| DynamoDB（オンデマンド）リクエスト | 約500 read + 200 write/月 | オンデマンドモードには無料枠なし（$0.25/100万read・$1.25/100万write、米国基準。東京はやや高め） | **$0.00**（$0.01未満） |
+
+### Phase 03 追加コスト
+
+| シナリオ | 月額 | 年額 |
+|---------|------|------|
+| 現在のポートフォリオ規模の使用量 | **約$0.00** | **約$0.00** |
+| API Gateway無料枠終了後（12ヶ月後） | **約$0.01** | **約$0.12** |
+
+> Phase 01/02と異なり、DynamoDBオンデマンドモードは**リクエスト課金に無料枠が無い**（無料なのはストレージ25GB分のみ）。ただしポートフォリオのデモ規模のトラフィックではリクエスト単価が実質ゼロに丸まる。今後実ユーザーのトラフィックが発生した場合、真っ先に注視すべきコスト項目はDynamoDBのリクエスト課金（API GatewayとLambdaの無料枠ははるかに大きい）。
+
+---
+
+## Phase 04–06 — コスト概算（予定）
 
 | Phase | 追加主要サービス | 月額概算 |
 |-------|---------------|---------|
-| 03 サーバーレス | API Gateway・Lambda・DynamoDB・Cognito | 約$0.00〜$2.00 |
 | 04 オブザーバビリティ | CloudWatch Logs・X-Ray・SNS | 約$0.00〜$1.00 |
 | 05 コンテナ | ECS Fargate・ALB・RDS | 約$30〜$80 |
 | 06 DevOps | CodePipeline・CodeBuild | 約$1.00〜$5.00 |
