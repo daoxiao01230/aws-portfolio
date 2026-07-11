@@ -2,7 +2,7 @@
 
 Status: ✅ Live — https://journal.daoxiao.org/
 
-Docs: [Architecture & design decisions](./docs/Architecture.md) · [Frontend design](./docs/Frontend-Design.md) · [Terraform reference](./infrastructure/terraform/README.md)
+Docs: [Architecture & design decisions](./docs/Architecture.md) · [Frontend design](./docs/Frontend-Design.md) · [Terraform reference](./infrastructure/terraform/README.md) · [Build-from-scratch tutorial (JP only)](./docs/Build-Tutorial.md)
 
 ## Architecture
 
@@ -205,7 +205,7 @@ aws-portfolio-03-serverless/
 
 ステータス: ✅ 公開中 — https://journal.daoxiao.org/
 
-ドキュメント: [アーキテクチャ・設計判断](./docs/Architecture.md) ・ [フロントエンド設計](./docs/Frontend-Design.md) ・ [Terraformリファレンス](./infrastructure/terraform/README.md)
+ドキュメント: [アーキテクチャ・設計判断](./docs/Architecture.md) ・ [フロントエンド設計](./docs/Frontend-Design.md) ・ [Terraformリファレンス](./infrastructure/terraform/README.md) ・ [ゼロから構築するチュートリアル](./docs/Build-Tutorial.md)
 
 ## アーキテクチャ
 
