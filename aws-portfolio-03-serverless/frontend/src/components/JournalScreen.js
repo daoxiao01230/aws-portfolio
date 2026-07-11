@@ -200,23 +200,25 @@ export default function JournalScreen({ onSignOut }) {
     }}>
       <div style={{ width: "100%", maxWidth: 430, display: "flex", flexDirection: "column" }}>
 
-        {/* Header — タイトル行とボタン行を分けて、subtitleが折り返さない幅を確保する */}
-        <div style={{ ...CARD, padding: "28px 16px 0" }}>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: "#5a3e6b", letterSpacing: "0.06em", lineHeight: 1.2 }}>
-            {t.appName}
-          </h1>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: "#9b85b0", fontStyle: "italic" }}>{t.subtitle}</p>
-          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-            <button onClick={cycleLang} style={{
+        {/* Header — アイコンボタンにしてPhase 1と同じ1行レイアウトに揃える */}
+        <div style={{ ...CARD, padding: "28px 16px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: "#5a3e6b", letterSpacing: "0.06em", lineHeight: 1.2 }}>
+              {t.appName}
+            </h1>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: "#9b85b0", fontStyle: "italic" }}>{t.subtitle}</p>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0, marginLeft: 12 }}>
+            <button onClick={cycleLang} title={t.langNext} aria-label={t.langNext} style={{
               background: "rgba(255,255,255,0.7)", border: "1.5px solid #d4c5e6",
-              borderRadius: 20, padding: "5px 14px", fontSize: 13, color: "#7a5fa0",
-              cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
-            }}>{t.langNext}</button>
-            <button onClick={handleSignOut} style={{
+              borderRadius: "50%", width: 32, height: 32, fontSize: 15, color: "#7a5fa0",
+              cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+            }}>🌐</button>
+            <button onClick={handleSignOut} title={t.signOut} aria-label={t.signOut} style={{
               background: "rgba(255,255,255,0.7)", border: "1.5px solid #d4c5e6",
-              borderRadius: 20, padding: "5px 14px", fontSize: 13, color: "#7a5fa0",
-              cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
-            }}>{t.signOut}</button>
+              borderRadius: "50%", width: 32, height: 32, fontSize: 15, color: "#7a5fa0",
+              cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+            }}>⏻</button>
           </div>
         </div>
 
