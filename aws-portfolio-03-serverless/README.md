@@ -1,13 +1,13 @@
 # Phase 03 — Serverless Gratitude Journal
 
-Status: 🚧 In Progress（設計・Terraformスケルトン作成済み・未デプロイ）
+Status: ✅ Live — https://journal.daoxiao.org/
 
 ## Architecture
 
 ```
-React (aws-portfolio-03-serverless/frontend)
-  │  login / signup
-  ▼
+CloudFront (journal.daoxiao.org) ── S3 (React build)
+  │
+  ▼  login / signup
 Cognito User Pool  ──JWT (ID Token)──┐
                                       ▼
                           API Gateway (HTTP API)
@@ -29,7 +29,8 @@ Cognito User Pool  ──JWT (ID Token)──┐
 - **Lambda言語をPython**: ユーザーがPython学習中のため、実務コードがそのまま学習教材になる。
 - **DynamoDBシングルテーブル + PK=userId/SK=entryId**: ユーザーごとのQueryで完結し、Scanが不要。他ユーザーのデータへ到達する経路自体が存在しない設計（IDOR対策）。
 - **IAMユーザーは新規作成せず既存(github-actions-portfolio-01)を拡張**: Phase毎にGitHub Secretsを増やさない方針を踏襲。
-- **CI/CDのスコープはLambdaコード更新のみ**: Cognito/API Gateway/DynamoDB/IAMロードなどのインフラ変更はPhase 2と同様、ローカルから`terraform apply`で手動デプロイする。CI用IAMユーザーにIAMロール作成権限までは持たせない。
+- **CI/CDのスコープはLambdaコード更新のみ**: Cognito/API Gateway/DynamoDB/IAMロードなどのインフラ変更はPhase 2と同様、ローカルから`terraform apply`で手動デプロイする。CI用IAMユーザーにIAMロール作成権限までは持たせない。フロントエンド(S3+CloudFront)のデプロイも同様に手動(`aws s3 sync`)。
+- **S3+CloudFrontはPhase 1とは別バケット・別ディストリビューション**: Phase 3を完全に独立してデプロイ・破棄できるようにする方針を踏襲（Phase 1のリソースをimportしない）。
 
 ## デプロイ手順（初回）
 
@@ -40,10 +41,12 @@ terraform plan
 terraform apply
 ```
 
-apply完了後、outputsに表示される以下をReactアプリの環境変数に設定する：
+apply完了後、outputsに表示される以下をReactアプリの環境変数(`.env.local`)に設定する：
 - `api_endpoint`
 - `cognito_user_pool_id`
 - `cognito_user_pool_client_id`
+- `frontend_bucket_name`（フロントエンドのデプロイ先）
+- `cloudfront_distribution_id`（キャッシュ無効化用）
 
 ## React フロントエンド
 
@@ -51,24 +54,29 @@ apply完了後、outputsに表示される以下をReactアプリの環境変数
 cd aws-portfolio-03-serverless/frontend
 npm install
 cp .env.example .env.local   # terraform outputsの値を書き込む
-npm start
+npm start                    # ローカル確認
+```
+
+本番デプロイ（手動・Phase 1と同じコマンド体系）:
+```bash
+npm run build
+aws s3 sync build/ s3://<frontend_bucket_name> --delete
+aws cloudfront create-invalidation --distribution-id <cloudfront_distribution_id> --paths "/*"
 ```
 
 - 認証: `amazon-cognito-identity-js`でCognitoと直接通信（サインアップ→確認コード→ログイン→IDトークン取得）
 - API呼び出し: 全リクエストのAuthorizationヘッダーにIDトークンを付与。401が返るとセッション切れとみなしログイン画面へ戻す
-- `npm run build` でのビルド確認済み（バックエンド未デプロイのためランタイム動作は未確認）
+- ユーザーによる実機E2Eテスト済み（サインアップ〜確認コード〜ログイン〜insert/update/delete/logout、2026-07-11）
 
-## 残タスク（未着手）
+## 残タスク
 
-- [ ] `terraform apply` 実行・実機デプロイ確認
-- [ ] `.env.local` にterraform outputsを設定し、エンドツーエンド動作確認（サインアップ→ログイン→日記のCRUD）
-- [ ] コストの確認（Cost-Estimation.mdへ追記）
+- [ ] GitHub Actionsでのフロントエンド自動デプロイ（現状は手動`aws s3 sync`のみ）
 
 ---
 
 # Phase 03 — サーバーレス感謝日記（日本語）
 
-ステータス: 🚧 進行中（設計・Terraformスケルトン作成済み・未デプロイ）
+ステータス: ✅ 公開中 — https://journal.daoxiao.org/
 
 構成・設計理由は上記英語セクション参照（同一内容）。
 
@@ -84,6 +92,10 @@ aws-portfolio-03-serverless/
 │   ├── lambda.tf          # 実行ロール + 4関数
 │   ├── api_gateway.tf     # HTTP API + JWT Authorizer + ルート
 │   ├── iam.tf             # 既存IAMユーザーへの権限追加
+│   ├── s3_frontend.tf     # フロントエンド配信用S3バケット
+│   ├── cloudfront.tf      # OAC + CloudFront（journal.daoxiao.org）
+│   ├── acm.tf             # ACM証明書（us-east-1）
+│   ├── route53.tf         # Aレコード(alias)
 │   └── outputs.tf
 ├── backend/lambda/
 │   ├── create_entry/handler.py

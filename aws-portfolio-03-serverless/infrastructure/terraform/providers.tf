@@ -18,3 +18,9 @@ terraform {
 provider "aws" {
   region = var.aws_region
 }
+
+# CloudFrontで使うACM証明書はus-east-1でのみ発行可能という制約への対応
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
+}

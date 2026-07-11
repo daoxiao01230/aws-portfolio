@@ -61,6 +61,10 @@ All estimates assume **low-traffic portfolio usage** (~1,000 visits/month).
 | Lambda (4 functions) | ~400 invocations/month | 1M requests + 400,000 GB-seconds, always free | **$0.00** |
 | DynamoDB (on-demand) storage | <1 MB | 25 GB, always free | **$0.00** |
 | DynamoDB (on-demand) requests | ~500 reads + 200 writes/month | None for on-demand mode ($0.25/M read, $1.25/M write, US baseline; Tokyo slightly higher) | **$0.00** (well under $0.01) |
+| S3 (frontend build, own bucket) | ~2 MB | 5 GB / 12 months | **$0.00** |
+| CloudFront (own distribution) | ~0.1 GB/month, ~500 req/month | 1 TB + 10M req, always free | **$0.00** |
+| ACM Certificate (journal.daoxiao.org) | 1 certificate | Always free (public cert) | **$0.00** |
+| Route 53 record | 1 A record (alias) in existing zone | No extra hosted zone fee — reuses Phase 2's zone | **$0.00** |
 
 ### Phase 03 Total (incremental)
 
@@ -179,6 +183,10 @@ All estimates assume **low-traffic portfolio usage** (~1,000 visits/month).
 | Lambda（4関数） | 約400回呼び出し/月 | 100万リクエスト＋400,000 GB秒・常時無料 | **$0.00** |
 | DynamoDB（オンデマンド）ストレージ | 1MB未満 | 25GB・常時無料 | **$0.00** |
 | DynamoDB（オンデマンド）リクエスト | 約500 read + 200 write/月 | オンデマンドモードには無料枠なし（$0.25/100万read・$1.25/100万write、米国基準。東京はやや高め） | **$0.00**（$0.01未満） |
+| S3（フロントエンド用・独自バケット） | 約2MB | 5GB / 12ヶ月 | **$0.00** |
+| CloudFront（独自ディストリビューション） | 約0.1GB/月・約500リクエスト/月 | 1TB＋1,000万リクエスト・常時無料 | **$0.00** |
+| ACM証明書（journal.daoxiao.org） | 1枚 | 常時無料（パブリック証明書） | **$0.00** |
+| Route 53 レコード | 既存ゾーンにAレコード(alias)1件追加 | Phase 2のゾーンを流用のため追加のホストゾーン代なし | **$0.00** |
 
 ### Phase 03 追加コスト
 

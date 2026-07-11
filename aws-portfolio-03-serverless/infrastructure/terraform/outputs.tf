@@ -16,3 +16,17 @@ output "cognito_user_pool_client_id" {
 output "dynamodb_table_name" {
   value = aws_dynamodb_table.entries.name
 }
+
+output "frontend_bucket_name" {
+  description = "React build成果物のsync先（aws s3 sync）"
+  value       = aws_s3_bucket.frontend.bucket
+}
+
+output "cloudfront_distribution_id" {
+  description = "デプロイ後のキャッシュ無効化（aws cloudfront create-invalidation）に使用"
+  value       = aws_cloudfront_distribution.frontend.id
+}
+
+output "site_url" {
+  value = "https://${var.domain_name}/"
+}

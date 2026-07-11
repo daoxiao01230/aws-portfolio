@@ -15,3 +15,15 @@ variable "github_actions_iam_user_name" {
   type        = string
   default     = "github-actions-portfolio-01"
 }
+
+variable "domain_name" {
+  description = "Phase 3フロントエンドのカスタムドメイン"
+  type        = string
+  default     = "journal.daoxiao.org"
+}
+
+variable "hosted_zone_id" {
+  description = "Route 53 Hosted Zone ID for daoxiao.org（Phase 2と共通）"
+  type        = string
+  default     = "Z06510601ASWSVLJJY29P"
+}
