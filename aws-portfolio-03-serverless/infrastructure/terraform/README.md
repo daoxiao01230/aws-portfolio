@@ -35,7 +35,9 @@ terraform plan
 terraform apply
 ```
 
-Then build and publish the frontend (see `../../frontend/README` or the Phase 03 root README):
+Then build and publish the frontend once manually (subsequent deploys are
+automated by `deploy-03-frontend.yml` on every push to `frontend/**` — see
+the [Phase 03 root README](../../README.md)):
 
 ```bash
 cd ../../frontend
@@ -132,7 +134,9 @@ terraform plan
 terraform apply
 ```
 
-続いてフロントエンドをビルド・公開する（詳細は`../../frontend`またはPhase 03ルートREADME参照）:
+続いて初回のみフロントエンドを手動でビルド・公開する（以降の変更は
+`frontend/**`へのpush時に`deploy-03-frontend.yml`が自動デプロイする。
+詳細は[Phase 03ルートREADME](../../README.md)参照）:
 
 ```bash
 cd ../../frontend

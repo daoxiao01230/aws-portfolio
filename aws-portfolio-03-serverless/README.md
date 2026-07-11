@@ -106,9 +106,8 @@ aws cloudfront create-invalidation --distribution-id <cloudfront_distribution_id
 
 ## Remaining work
 
-- [ ] One-time: set the GitHub repo Variables listed in
-      `.github/workflows/deploy-03-frontend.yml`'s header comment before the
-      workflow's first run.
+None — both CI/CD pipelines (Lambda + frontend) are set up and verified
+working end-to-end.
 
 ## Folder structure
 
@@ -254,8 +253,8 @@ aws cloudfront create-invalidation --distribution-id <cloudfront_distribution_id
 
 ## 残タスク
 
-- [ ] 初回のみ: `.github/workflows/deploy-03-frontend.yml`冒頭コメント記載の
-      GitHub repo Variablesを設定してから、ワークフローを初回実行する
+なし — Lambda・フロントエンドとも、CI/CDパイプラインの設定・実機での
+動作確認まで完了している。
 
 ## フォルダ構成
 

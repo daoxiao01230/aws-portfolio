@@ -40,13 +40,15 @@ aws-portfolio/
 ├── aws-portfolio-02-custom-domain/ # Phase 02 — ✅ live
 │   └── docs/troubleshooting.md    # DNS clientHold investigation (RDAP-based diagnosis)
 ├── aws-portfolio-03-serverless/    # Phase 03 — ✅ live
+│   ├── docs/                      # Architecture & Frontend-Design rationale
 │   ├── infrastructure/terraform/  # Cognito, DynamoDB, Lambda, API Gateway (HTTP API + JWT authorizer), S3+CloudFront+ACM+Route53
 │   ├── backend/lambda/            # Python 3.12 handlers (create/list/update/delete entry)
 │   └── frontend/                  # Login/signup + CRUD UI, deployed to journal.daoxiao.org
 └── .github/workflows/
     ├── deploy-01-static-site.yml   # triggers on Phase 01 changes only
     ├── deploy-02-custom-domain.yml # triggers on Phase 02 changes only
-    └── deploy-03-serverless.yml    # triggers on Phase 03 Lambda code changes only
+    ├── deploy-03-serverless.yml    # triggers on Phase 03 Lambda code changes only
+    └── deploy-03-frontend.yml      # triggers on Phase 03 frontend changes only
 ```
 
 ---
@@ -101,13 +103,15 @@ aws-portfolio/
 ├── aws-portfolio-02-custom-domain/ # Phase 02 — ✅ 公開中
 │   └── docs/troubleshooting.md    # DNS clientHold調査記録（RDAPによる診断）
 ├── aws-portfolio-03-serverless/    # Phase 03 — ✅ 公開中
+│   ├── docs/                      # アーキテクチャ・フロントエンド設計の理由
 │   ├── infrastructure/terraform/  # Cognito, DynamoDB, Lambda, API Gateway (HTTP API + JWT authorizer), S3+CloudFront+ACM+Route53
 │   ├── backend/lambda/            # Python 3.12 ハンドラー（日記のCRUD）
 │   └── frontend/                  # ログイン/サインアップ + CRUD UI（journal.daoxiao.orgで公開中）
 └── .github/workflows/
     ├── deploy-01-static-site.yml   # Phase 01 の変更時のみ発火
     ├── deploy-02-custom-domain.yml # Phase 02 の変更時のみ発火
-    └── deploy-03-serverless.yml    # Phase 03 のLambdaコード変更時のみ発火
+    ├── deploy-03-serverless.yml    # Phase 03 のLambdaコード変更時のみ発火
+    └── deploy-03-frontend.yml      # Phase 03 のフロントエンド変更時のみ発火
 ```
 
 ---
